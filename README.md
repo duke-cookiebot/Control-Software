@@ -29,11 +29,13 @@ Subclass stage that handles all processes for icing a set of baked cookies.
 
 ## Actuator
 Actuator is an abstract superclass for anything that moves anything in the physical world.  Actuators handle their own control and expose a simple, uniform API to the Stage that owns them.
+### FrostingActuator(Actuator)
+
 ### LinearActuator(Actuator)
  A subclass of actuators that only moves along one axis.  Important features of all linear actuators will be a bounded domain and the ability to  move to a set location along their axis.  
-### Motor(LinearActuator)
+#### Motor(LinearActuator)
 Subclass of linear actuator for moving the nozzle.  Should provide the ability to not only move to a location, but to control speed.
-### DiscreteLinearActuator/Piston(LinearActuator)
+#### DiscreteLinearActuator/Piston(LinearActuator)
 Subclass of linear actuator for lifting or lowering the platform - called 'discrete' because it does not need to have infinite possible locations, but could just have two locations: up and down.  Or it could have some set of possible locations, but a discrete domain.
 ## Sensor
 Sensor is a superclass that should be inherited by anything that collects data but does not influence the physical world.  We might actually not have any of these in the single-stage prototype, not sure yet.
