@@ -9,7 +9,12 @@ from uuid import uuid1
 
 class Actuator(object):
     '''
-    classdocs
+    Base class for all types of actuators
+    
+    This class exposes a set of public methods that an be called to use the
+    actuator.  These methods will be identical for all actuators (although they
+    will take different arguments)  It also defines some private methods that
+    SHOULD or MUST be overridden in order to have a real, functioning actuator
     '''
     logger = logging.getLogger('Actuator')
     
@@ -18,22 +23,28 @@ class Actuator(object):
         ready = 0
         executing = 1
         executing_blocked = 2
+        dead = 3
     
 
-    def __init__(self, id=''):
+    def __init__(self, identity=''):
         '''
         Constructor
+        
+        Prepares the actuator to receive commands and assigns its id
         '''
         self.state = Actuator.State.ready
         self.task = None
-        self.id = id if id else str(uuid1())
-        
+        self.id = identity if identity else str(uuid1())        
         
     def __str__(self):
         return ''
     
     def set_task(self, task, blocking=False):
-        '''Public API for assigning a task to an actuator'''
+        '''Public API for assigning a task to an actuator'''   
+        
+        if self.state is Actuator.State.dead:
+            self.logger.error('Cannot set tasks on {0} because it is dead'.format(self.id))
+            raise CommandError('Actuator is dead and cannot be commanded')
         
         if self.state is Actuator.State.executing_blocked:
             self.logger.warning('Cannot change task while executing a blocking task')
@@ -49,12 +60,21 @@ class Actuator(object):
     def run_execution(self):
         '''Public API called repeatedly and frequently to update the state'''
         
+        if self.state is Actuator.State.dead:
+            self.logger.error('Cannot set tasks on {0} because it is dead'.format(self.id))
+            raise ExecutionError('Actuator is dead and cannot be commanded')
+                
         if self.task is not None and self.state is Actuator.State.ready:
             self.state = Actuator.State.executing_blocked if self._task_is_blocking else Actuator.State.executing
             
-        if self.task is not None and self.state is not Actuator.State.ready:
+        if self.task is not None and self.state is Actuator.State.executing or Actuator.State.executing_blocked:
+            if self._check_bounds():
+                self.kill()
+                raise ExecutionError('Bounds violated, actuator killed')
+            
             if self._task_is_complete():
-                self.state = Actuator.State.ready 
+                self.state = Actuator.State.ready
+                self.task = None
             else:
                 try:
                     self._execute_task()
@@ -62,8 +82,46 @@ class Actuator(object):
                 except ExecutionError as e:
                     self.logger.error('Unable to execute task')
                     raise e
+                
+        if self.task is None:
+            self.logger.debug('Waiting for a task to be assigned')
+            self.logger.debug('Actuator state is {0}'.format(self.state))
+    
+    def kill(self):
+        '''Public API method - kill this actuator
+        
+        Prevents setting or executing tasks in the future.  Attempts to halt the
+        actuator
+        '''
+        
+        self.state = Actuator.State.dead
+        self._halt()
         
         
+    
+    def _check_bounds(self):
+        '''Private method to make sure that the actuator in a valid location
+        
+        Should be uniquely implemented by all subclasses
+        
+        Should return True if the actuator is within its bounds/conditions, or
+        False otherwise
+        
+        This version assumes everything is fine and reports such
+        '''
+        
+        return True
+    
+    def _halt(self):
+        '''Private method that should do anything necessary to safely stop the
+        actuator
+        
+        Should be uniquely implemented by each subclass
+        
+        Void method, does not have to return anything
+        '''
+        
+        pass
     
     
     def _validate_task(self, task):
@@ -72,9 +130,14 @@ class Actuator(object):
         Must be implemented uniquely by all subclasses
         
         Returns True if the task will be okay, False otherwise
+        
+        Default version assumes anything passed at all is a valid task
+        This means I could say task='ASHFSDJHSLKBJNS' and the actuator would go
+        "Fine by me!"
+        Please override this method in subclasses.
         '''
         
-        raise NotImplementedError  
+        return True 
     
     def _task_is_complete(self):
         '''Private method for checking if the assigned task (self.task) is done
@@ -84,7 +147,7 @@ class Actuator(object):
         Should return True if the task is done enough to stop, else False
         '''
         
-        raise NotImplementedError
+        return False
     
     def _execute_task(self):
         '''Private method to do external interfacing and actually send commands
@@ -97,13 +160,15 @@ class Actuator(object):
         Should raise ExecutionError if something horrid happens
         '''
         
-        raise NotImplementedError
+        pass
      
         
 class LinearActuator(Actuator):
     '''
     Classdocs
     '''
+    
+    logger = logging.getLogger('LinearActuator')
     
     def __init__(self, params):
         super(LinearActuator, self).__init__(params)
@@ -113,6 +178,8 @@ class PlatformActuator(LinearActuator):
     '''
     classdocs
     '''
+    
+    logger = logging.getLogger('PlatformActuator')
     
     def __init__(self, params):
         '''
