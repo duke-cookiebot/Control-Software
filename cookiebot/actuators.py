@@ -39,8 +39,11 @@ class Actuator(object):
     def __str__(self):
         return ''
     
-    def set_task(self, task, blocking=False):
-        '''Public API for assigning a task to an actuator'''   
+    def set_task(self, task={'speed':0.0, 'goal':0.0}, blocking=False):
+        '''Public API for assigning a task to an actuator
+        
+        Raises CommandError if the command is, for some reason, invalid
+        '''   
         
         if self.state is Actuator.State.dead:
             self.logger.error('Cannot set tasks on {0} because it is dead'.format(self.id))
@@ -58,7 +61,10 @@ class Actuator(object):
         self._task_is_blocking = blocking
     
     def run_execution(self):
-        '''Public API called repeatedly and frequently to update the state'''
+        '''Public API called repeatedly and frequently to update the state
+        
+        Raises ExecutionError if something goes wrong
+        '''
         
         if self.state is Actuator.State.dead:
             self.logger.error('Cannot set tasks on {0} because it is dead'.format(self.id))
@@ -97,8 +103,6 @@ class Actuator(object):
         self.state = Actuator.State.dead
         self._halt()
         
-        
-    
     def _check_bounds(self):
         '''Private method to make sure that the actuator in a valid location
         
@@ -165,68 +169,51 @@ class Actuator(object):
         
 class LinearActuator(Actuator):
     '''
-    Classdocs
+    Class for controlling any and all linear actuators in the design
+    
+    Since we are using the same actuator for all actuation, this should be the
+    only class to implement.  Granted, we'll use each actuator differently, but
+    all will be instances of this LinearActuator class (barring changes)
+    
+    The class must override the five private methods from Actuator - the
+    function of each is described in Actuator.
     '''
     
     logger = logging.getLogger('LinearActuator')
     
-    def __init__(self, params):
-        super(LinearActuator, self).__init__(params)
+    def __init__(self, identity='', pos_bound={'low':0, 'high':float('inf')}, max_speed=100.0):
+        '''
+        Constructor
+        
+        Takes the arguments above (and any other startup information needed, 
+        like pins, addresses, etc - add them as keyword arguments to the 
+        constructor) and prepares an actuator for use.
+        
+        Connecting to hats and stuff goes here
+        '''
+        
+        #superclass constructor
+        super(LinearActuator, self).__init__(identify=identity)
+        
+        #store for later use
+        self.bound = pos_bound
+        self.max_speed = max_speed
                    
-        
-class PlatformActuator(LinearActuator):
-    '''
-    classdocs
-    '''
+    def _check_bounds(self):
+        raise NotImplementedError
     
-    logger = logging.getLogger('PlatformActuator')
+    def _halt(self):
+        raise NotImplementedError
     
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
-        
-        super(PlatformActuator, self).__init__(params)
-        
-        
-class NozzleActuator(LinearActuator):
-    '''
-    classdocs
-    '''
+    def _validate_task(self, task):
+        raise NotImplementedError
     
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
-        
-        super(NozzleActuator, self).__init__(params)
-        
-        
-class MotorActuator(LinearActuator):
-    '''
-    This class will be used for each of the two linear actuators controlling
-    the location of the nozzle
+    def _task_is_complete(self):
+        raise NotImplementedError
     
-    It must implement set_task() to take both a desired location and a desired
-    speed
-    
-    Like all LinearActuators, it must be initialized with a bounded domain and
-    must stop if it reaches the edges of that domain or raise an exception if a
-    command is given that is outside of that bound.  It should additionally have
-    a maximum speed at which it can move, which should be public and accessible,
-    and should raise an exception if a speed command is greater than that speed.
-    
-    Assigned: XY motion team, Mari and Carrina
-    '''
-    
-    def __init__(self, params):
-        '''
-        Constructor
-        '''
-        
-        super(MotorActuator, self).__init__(params)
-        
-    
+    def _execute_task(self):
+        raise NotImplementedError
+     
         
 class CommandError(Exception):
     def __init__(self, value):
