@@ -7,7 +7,7 @@ Created on Jan 18, 2016
 import enum
 
 
-class Recipe:
+class Recipe(object):
     '''
     Recipe is a small class that holds the information necessary to specify
     a set of cookies to all possible stages.
