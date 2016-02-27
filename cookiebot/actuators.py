@@ -6,6 +6,7 @@ Created on Jan 18, 2016
 import enum
 import logging
 from uuid import uuid1
+import threading
 
 
 class Actuator(object):
@@ -33,13 +34,13 @@ class Actuator(object):
         Prepares the actuator to receive commands and assigns its id
         '''
         self.state = Actuator.State.ready
-        self.task = None
         self.id = identity if identity else str(uuid1())
+        self._task = None
 
     def __str__(self):
         return ''
 
-    def set_task(self, task={'speed': 0.0, 'goal': 0.0}, blocking=False):
+    def set_task(self, task=None, blocking=False):
         '''Public API for assigning a task to an actuator
 
         Raises CommandError if the command is, for some reason, invalid
@@ -53,7 +54,8 @@ class Actuator(object):
         if self.state is Actuator.State.executing_blocked:
             self.logger.warning(
                 'Cannot change task while executing a blocking task')
-            raise CommandError('Task {0} is executing'.format(self.task))
+            raise CommandError(
+                'Cannot change task while executing a blocking task')
 
         if not self._validate_task(task):
             self.logger.error(
@@ -61,7 +63,7 @@ class Actuator(object):
             raise CommandError(
                 'Task {0} is not valid for actautor {1}'.format(task, self.id))
 
-        self.task = task
+        self._task = task
         self._task_is_blocking = blocking
 
     def run_execution(self):
@@ -75,17 +77,17 @@ class Actuator(object):
                 'Cannot set tasks on {0} because it is dead'.format(self.id))
             raise ExecutionError('Actuator is dead and cannot be commanded')
 
-        if self.task is not None and self.state is Actuator.State.ready:
+        if self._task and self.state == Actuator.State.ready:
             self.state = Actuator.State.executing_blocked if self._task_is_blocking else Actuator.State.executing
 
-        if self.task is not None and self.state is Actuator.State.executing or Actuator.State.executing_blocked:
-            if self._check_bounds():
+        if self._task and (self.state == Actuator.State.executing or self.state == Actuator.State.executing_blocked):
+            if not self._check_bounds():
                 self.kill()
                 raise ExecutionError('Bounds violated, actuator killed')
 
             if self._task_is_complete():
                 self.state = Actuator.State.ready
-                self.task = None
+                self._task = None
             else:
                 try:
                     self._execute_task()
@@ -94,7 +96,7 @@ class Actuator(object):
                     self.logger.error('Unable to execute task')
                     raise e
 
-        if self.task is None:
+        if self._task is None:
             self.logger.debug('Waiting for a task to be assigned')
             self.logger.debug('Actuator state is {0}'.format(self.state))
 
@@ -119,7 +121,7 @@ class Actuator(object):
         This version assumes everything is fine and reports such
         '''
 
-        return False
+        return True
 
     def _halt(self):
         '''Private method that should do anything necessary to safely stop the
@@ -171,7 +173,7 @@ class Actuator(object):
         pass
 
 
-class LinearActuator(Actuator):
+class StepperActuator(Actuator):
     '''
     Class for controlling any and all linear actuators in the design
 
@@ -183,9 +185,9 @@ class LinearActuator(Actuator):
     function of each is described in Actuator.
     '''
 
-    logger = logging.getLogger('CookieBot.Actuator.LinearActuator')
+    logger = logging.getLogger('CookieBot.Actuator.StepperActuator')
 
-    def __init__(self, identity='', pos_bound={'low': 0, 'high': float('inf')}, max_speed=100.0):
+    def __init__(self, identity='', dist_per_step=1.0, max_dist=float('inf')):
         '''
         Constructor
 
@@ -193,30 +195,65 @@ class LinearActuator(Actuator):
         like pins, addresses, etc - add them as keyword arguments to the
         constructor) and prepares an actuator for use.
 
-        Connecting to hats and stuff goes here
+        Connecting to hats and zeroing starting position goes here
         '''
 
         # superclass constructor
-        super(LinearActuator, self).__init__(identify=identity)
+        super(StepperActuator, self).__init__(identify=identity)
 
-        # store for later use
-        self.bound = pos_bound
-        self.max_speed = max_speed
+        # do the things that zero the stepper position here
+        self.step_pos = 0
+        self.step_size = dist_per_step
+        self.max_steps = max_dist / self.step_size
+
+    @property
+    def real_pos(self):
+        return self.step_pos / self.step_size
 
     def _check_bounds(self):
-        raise NotImplementedError
+        return (self.step_pos > 0 and self.step_pos < self.max_steps)
 
     def _halt(self):
-        raise NotImplementedError
+        self._task = []
+        # do other things to quickly stop the stepper, if necessary
 
     def _validate_task(self, task):
-        raise NotImplementedError
+        '''Check that task is an iterable containing only -1, 0 or 1'''
+
+        try:
+            itertask = iter(task)
+        except TypeError:
+            return False
+        else:
+            return set(itertask) <= set((-1, 0, 1))
 
     def _task_is_complete(self):
-        raise NotImplementedError
+        return len(self._task) == 0
 
     def _execute_task(self):
-        raise NotImplementedError
+        step, self._task = self._task[0], self._task[1:]  # aka generalized pop
+
+        if step == -1:
+            # step back oneStep
+            pass
+        elif step == 1:
+            # step forward oneStep
+            pass
+
+
+class Carriage(object):
+    '''Defines a wrapper class for controlling carriage XY pos'''
+    pass
+
+
+class Nozzle(object):
+    '''Defines a wrapper class for controlling the nozzle'''
+    pass
+
+
+class Platform(object):
+    '''Defines a wrapper class for controlling platform position'''
+    pass
 
 
 class CommandError(Exception):
