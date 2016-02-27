@@ -6,7 +6,7 @@ Created on Jan 18, 2016
 import enum
 import logging
 from uuid import uuid1
-import threading
+from threading import Timer
 
 
 class Actuator(object):
@@ -27,18 +27,21 @@ class Actuator(object):
         executing_blocked = 2
         dead = 3
 
-    def __init__(self, identity=''):
+    def __init__(self, identity='', run_interval=0.1):
         '''
         Constructor
 
-        Prepares the actuator to receive commands and assigns its id
+        Prepares an actuator to receive commands, assigns its ID, and starts
+        execution.
         '''
         self.state = Actuator.State.ready
         self.id = identity if identity else str(uuid1())
         self._task = None
 
+        self.timer = RepeatedTimer(run_interval, self.run_execution)
+
     def __str__(self):
-        return ''
+        return self.id
 
     def set_task(self, task=None, blocking=False):
         '''Public API for assigning a task to an actuator
@@ -179,7 +182,7 @@ class StepperActuator(Actuator):
 
     Since we are using the same actuator for all actuation, this should be the
     only class to implement.  Granted, we'll use each actuator differently, but
-    all will be instances of this LinearActuator class (barring changes)
+    all will be instances of this StepperActuator class (barring changes)
 
     The class must override the five private methods from Actuator - the
     function of each is described in Actuator.
@@ -187,7 +190,11 @@ class StepperActuator(Actuator):
 
     logger = logging.getLogger('CookieBot.Actuator.StepperActuator')
 
-    def __init__(self, identity='', dist_per_step=1.0, max_dist=float('inf')):
+    def __init__(self,
+                 identity='',
+                 run_interval=0.1,
+                 dist_per_step=1.0,
+                 max_dist=float('inf')):
         '''
         Constructor
 
@@ -199,9 +206,13 @@ class StepperActuator(Actuator):
         '''
 
         # superclass constructor
-        super(StepperActuator, self).__init__(identify=identity)
+        super(StepperActuator, self).__init__(
+            identify=identity, run_interval=run_interval)
 
-        # do the things that zero the stepper position here
+        ''' do the things that zero the stepper position here
+        
+        
+        '''
         self.step_pos = 0
         self.step_size = dist_per_step
         self.max_steps = max_dist / self.step_size
@@ -233,6 +244,7 @@ class StepperActuator(Actuator):
     def _execute_task(self):
         step, self._task = self._task[0], self._task[1:]  # aka generalized pop
 
+        self.step_pos += step
         if step == -1:
             # step back oneStep
             pass
@@ -241,19 +253,34 @@ class StepperActuator(Actuator):
             pass
 
 
-class Carriage(object):
-    '''Defines a wrapper class for controlling carriage XY pos'''
-    pass
+class RepeatedTimer(object):
+    '''Class courtesy of MestreLion on StackOverflow
+    See http://stackoverflow.com/a/13151299/5370002 for details
+    '''
 
+    def __init__(self, interval, function, *args, **kwargs):
+        self._timer = None
+        self.interval = interval
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+        self.is_running = False
+        self.start()
 
-class Nozzle(object):
-    '''Defines a wrapper class for controlling the nozzle'''
-    pass
+    def _run(self):
+        self.is_running = False
+        self.start()
+        self.function(*self.args, **self.kwargs)
 
+    def start(self):
+        if not self.is_running:
+            self._timer = Timer(self.interval, self._run)
+            self._timer.start()
+            self.is_running = True
 
-class Platform(object):
-    '''Defines a wrapper class for controlling platform position'''
-    pass
+    def stop(self):
+        self._timer.cancel()
+        self.is_running = False
 
 
 class CommandError(Exception):
