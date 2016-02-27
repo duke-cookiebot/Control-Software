@@ -3,7 +3,7 @@ Created on Jan 18, 2016
 
 @author: justinpalpant
 '''
-
+from cookiebot.actuators import LinearActuator
 
 class Stage(object):
     '''
@@ -21,6 +21,8 @@ class Stage(object):
         '''
         Constructor
         '''
+        
+        self.actuators = {}
 
 
 class IcingStage(Stage):
@@ -36,10 +38,18 @@ class IcingStage(Stage):
         super(IcingStage, self).__init__()
 
         # Set up actuators
+        # Need more parameters here to customize each actuator
+        self.actuators['MotorX'] = LinearActuator()
+        self.actuators['MotorY'] = LinearActuator()
+        self.actuators['Nozzle'] = LinearActuator()
+        self.actuators['Platform'] = LinearActuator()
 
         # Set up assorted parameters
         self.x_cookie_shift = 10
         self.y_cookie_shift = 10
+        self.motor_max_velocity = 100
+        self.nozzle_speed = 10
+        self.actuator_speed = 10
 
     def parse_recipe(self, recipe):
         reset_command = {'dest': (0, 0), 'extrude': False}
@@ -51,7 +61,7 @@ class IcingStage(Stage):
 
             commands_list.append(reset_command)
             commands_list.extend(commands)
-            
+
         return commands_list
 
     def icing_file_to_commands(self, filename):
@@ -101,3 +111,5 @@ class IcingStage(Stage):
         y = coord[1] + cookiepos[1] * self.y_cookie_spacing
 
         return (x, y)
+    
+    
