@@ -7,7 +7,7 @@ import enum
 import logging
 import abc
 from uuid import uuid1
-from threading import Timer
+from cookiebot.multithreading import RepeatedTimer
 
 
 class Actuator(object):
@@ -39,7 +39,7 @@ class Actuator(object):
         self.id = identity if identity else str(uuid1())
         self._task = None
 
-        self.timer = RepeatedTimer(run_interval, self.run_execution)
+        self._timer = RepeatedTimer(run_interval, self._run_execution)
 
     def __str__(self):
         return self.id
@@ -70,8 +70,8 @@ class Actuator(object):
         self._task = task
         self._task_is_blocking = blocking
 
-    def run_execution(self):
-        '''Public API called repeatedly and frequently to update the state
+    def _run_execution(self):
+        '''Private method called repeatedly and frequently to update the state
 
         Raises ExecutionError if something goes wrong
         '''
@@ -113,6 +113,13 @@ class Actuator(object):
 
         self.state = Actuator.State.dead
         self._halt()
+        self.pause()
+
+    def pause(self):
+        self._timer.stop()
+
+    def unpause(self):
+        self._timer.start()
 
     def _check_bounds(self):
         '''Private method to make sure that the actuator in a valid location
@@ -135,8 +142,6 @@ class Actuator(object):
 
         Void method, does not have to return anything
         '''
-
-        pass
 
     def _validate_task(self, task):
         '''Private method for determining if a task if valid for an actuator
@@ -226,6 +231,7 @@ class StepperActuator(Actuator):
         return (self.step_pos > 0 and self.step_pos < self.max_steps)
 
     def _halt(self):
+        super(StepperActuator, self)._halt()
         self._task = []
         # do other things to quickly stop the stepper, if necessary
 
@@ -252,36 +258,6 @@ class StepperActuator(Actuator):
         elif step == 1:
             # step forward oneStep
             pass
-
-
-class RepeatedTimer(object):
-    '''Class courtesy of MestreLion on StackOverflow
-    See http://stackoverflow.com/a/13151299/5370002 for details
-    '''
-
-    def __init__(self, interval, function, *args, **kwargs):
-        self._timer = None
-        self.interval = interval
-        self.function = function
-        self.args = args
-        self.kwargs = kwargs
-        self.is_running = False
-        self.start()
-
-    def _run(self):
-        self.is_running = False
-        self.start()
-        self.function(*self.args, **self.kwargs)
-
-    def start(self):
-        if not self.is_running:
-            self._timer = Timer(self.interval, self._run)
-            self._timer.start()
-            self.is_running = True
-
-    def stop(self):
-        self._timer.cancel()
-        self.is_running = False
 
 
 class CommandError(Exception):
