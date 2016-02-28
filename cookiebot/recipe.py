@@ -7,6 +7,10 @@ Created on Jan 18, 2016
 import enum
 
 
+class RecipeError(Exception):
+    pass
+
+
 class Recipe(object):
     '''
     Recipe is a small class that holds the information necessary to specify
