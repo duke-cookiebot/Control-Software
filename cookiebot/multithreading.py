@@ -3,33 +3,74 @@ Created on Feb 27, 2016
 
 @author: justinpalpant
 '''
-from threading import Timer
+import time
+from threading import Event, Thread
+
 
 class RepeatedTimer(object):
-    '''Class courtesy of MestreLion on StackOverflow
-    See http://stackoverflow.com/a/13151299/5370002 for details
-    '''
+    """Repeat `function` every `interval` seconds.
+
+    Class courtesy of Six on StackOverflow
+    See http://stackoverflow.com/a/33054922/5370002 for more
+    """
 
     def __init__(self, interval, function, *args, **kwargs):
-        self._timer = None
         self.interval = interval
         self.function = function
         self.args = args
         self.kwargs = kwargs
-        self.is_running = False
-        self.start()
+        self.start = time.time()
+        self.restart()
 
-    def _run(self):
-        self.is_running = False
-        self.start()
-        self.function(*self.args, **self.kwargs)
+    def _target(self):
+        while not self.event.wait(self._time):
+            self.function(*self.args, **self.kwargs)
 
-    def start(self):
-        if not self.is_running:
-            self._timer = Timer(self.interval, self._run)
-            self._timer.start()
-            self.is_running = True
+    @property
+    def _time(self):
+        return self.interval - ((time.time() - self.start) % self.interval)
 
     def stop(self):
-        self._timer.cancel()
-        self.is_running = False
+        self.event.set()
+        self.thread.join()
+
+    def restart(self):
+        self.event = Event()
+        self.thread = Thread(target=self._target)
+        self.thread.start()
+
+
+def demo():
+    count = [0]
+
+    othercount = [0]
+    
+    def countup(id, counter, start, printiter):
+        counter[0] += 1
+        if counter[0] % printiter == 0:
+            print 'ID {0}, time {1}, did a thing {2} times'.format(id, time.time() - start, counter[0])
+
+    start = time.time()
+    res = 1000
+    res2 = 200
+    t = RepeatedTimer(1.0 / res, lambda: countup('1st', count, start, res))
+    t2 = RepeatedTimer(1.0 / res2, lambda: countup('2nd', othercount, start, 275))
+
+    time.sleep(8)
+
+    t.stop()
+
+    print 'Stopped?  Wait 2s and then restart Restart'
+
+    time.sleep(2)
+
+    t.restart()
+
+    time.sleep(5.01)
+
+    t.stop()
+    t2.stop()
+
+
+if __name__ == '__main__':
+    demo()

@@ -61,11 +61,11 @@ class IcingStage(Stage):
         self.x_cookie_shift = (1.0, 3.0)
         self.y_cookie_shift = (1.0, 3.0)
 
-        self.recipe_timer = RepeatedTimer(0.01, self._check_recipe)
+        self.recipe_timer = RepeatedTimer(0.05, self._check_recipe)
         self.recipe_timer.stop()
 
     def start_recipe(self):
-        self.recipe_timer.start()
+        self.recipe_timer.restart()
 
     def stop_recipe(self):
         self.recipe_timer.stop()
@@ -163,8 +163,8 @@ class IcingStage(Stage):
     def _shift_point(self, coord, cookiepos):
         '''Shift a single coordinate based on the cookiepos it belongs to'''
 
-        x = coord[0] + cookiepos[0] * self.x_cookie_spacing
-        y = coord[1] + cookiepos[1] * self.y_cookie_spacing
+        x = self.x_cookie_shift[0] + coord[0] + cookiepos[0] * self.x_cookie_shift[1]
+        y = self.y_cookie_shift[0] + coord[1] + cookiepos[1] * self.y_cookie_shift[1]
 
         return (x, y)
 

@@ -120,7 +120,7 @@ class Actuator(object):
         self._timer.stop()
 
     def unpause(self):
-        self._timer.start()
+        self._timer.restart()
 
     def _check_bounds(self):
         '''Private method to make sure that the actuator in a valid location
