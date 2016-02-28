@@ -3,9 +3,10 @@ Created on Jan 18, 2016
 
 @author: justinpalpant
 '''
-from cookiebot.actuators import StepperActuator
+from cookiebot.actuators import StepperActuator, ActuatorWrapper
 from cookiebot.multithreading import RepeatedTimer
 import enum
+from __builtin__ import False
 
 
 class Stage(object):
@@ -33,10 +34,19 @@ class IcingStage(Stage):
     classdocs
     '''
     @enum.unique
-    class Actuators(enum.IntEnum):
+    class WrapperID(enum.IntEnum):
         carriage = 0  # blocking
         platform = 1  # blocking
         nozzle = 2  # non-blocking
+
+    class CarriageWrapper(ActuatorWrapper):
+        pass
+
+    class NozzleWrapper(ActuatorWrapper):
+        pass
+
+    class PlatformWrapper(ActuatorWrapper):
+        pass
 
     def __init__(self):
         '''
@@ -51,13 +61,6 @@ class IcingStage(Stage):
         self.x_cookie_shift = (1.0, 3.0)
         self.y_cookie_shift = (1.0, 3.0)
 
-        self.platform_max = 1.0  # inches, acts as bound
-        self.xmax = 10.0  # inches, acts as bound
-        self.ymax = 10.0  # inches, acts as bound
-        self.nozzlemax = 4.0  # inches, acts as bound
-
-        self.platform = StepperActuator()
-
         self.recipe_timer = RepeatedTimer(0.01, self._check_recipe)
         self.recipe_timer.stop()
 
@@ -71,41 +74,20 @@ class IcingStage(Stage):
         '''Frequently-called method that checks if another step of the recipe
         should be executed, and executes it if so'''
 
-        if self.steps:
-            if not self.busy or (self.busy and self._actuators_ready):
-                # we need to start the next command
-                next_step, self.steps = self.steps[0], self.steps[1:]
+        if self.steps and self._actuators_ready:
+            # we need to start the next command
+            next_step, self.steps = self.steps[0], self.steps[1:]
 
-                for actuator, command in next_step:
-                    self._actuators(actuator).pause()
-                    self._generate_and_send_task(actuator, command)
+            for actuator, command in next_step:
+                self._wrappers[actuator].pause()
+                self._wrappers[actuator].send(command)
 
-                for actuator, command in next_step:
-                    self._actuators(actuator).unpause()
+            for actuator, command in next_step:
+                self._wrappers[actuator].unpause()
 
     @property
     def _actuators_ready(self):
-        return False
-
-    def _generate_and_send_task(self, actuator, command):
-        task = []
-
-        if actuator == IcingStage.Actuators.carriage:
-            blocking = True
-        elif actuator == IcingStage.Actuators.platform:
-            blocking = True
-        elif actuator == IcingStage.Actuators.nozzle:
-            blocking = False
-
-        self._actuators(actuator).set_task(task, blocking)
-
-    def _actuators(self, actuator):
-        if actuator == IcingStage.Actuators.carriage:
-            return self.carriage
-        elif actuator == IcingStage.Actuators.platform:
-            return self.platform
-        elif actuator == IcingStage.Actuators.nozzle:
-            return self.nozzle
+        return all([wrapper.ready for wrapper in self._wrappers.items()])
 
     def load_recipe(self, recipe):
         parsed = []
@@ -113,9 +95,9 @@ class IcingStage(Stage):
         # every recipe starts by raising the platform, stopping the nozzle and
         # zeroing the carriage
 
-        parsed.append({IcingStage.Actuators.carriage: (0, 0),
-                       IcingStage.Actuators.nozzle: False,
-                       IcingStage.Actuators.platform: self.platform_max
+        parsed.append({IcingStage.WrapperID.carriage: (0, 0),
+                       IcingStage.WrapperID.nozzle: False,
+                       IcingStage.WrapperID.platform: self.platform_max
                        })
 
         for cookie_pos, cookie_spec in recipe.cookies.iteritem():
@@ -126,9 +108,9 @@ class IcingStage(Stage):
         # every recipe ends by stopping the nozzle, zeroing the carriage, and
         # lowering the platform
 
-        parsed.append({IcingStage.Actuators.carriage: (0, 0),
-                       IcingStage.Actuators.nozzle: False,
-                       IcingStage.Actuators.platform: 0
+        parsed.append({IcingStage.WrapperID.carriage: (0, 0),
+                       IcingStage.WrapperID.nozzle: False,
+                       IcingStage.WrapperID.platform: 0
                        })
 
         self.steps = parsed[:]
@@ -143,8 +125,8 @@ class IcingStage(Stage):
             A list of dictionaries {actuator:command}, each defining one
             'action'
 
-            e.g. [{IcingStage.Actuators.carriage:(0,1),
-                   IcingStage.Actuators.nozzle:False}]
+            e.g. [{IcingStage.WrapperID.carriage:(0,1),
+                   IcingStage.WrapperID.nozzle:False}]
 
             Would move to (0,1) with the nozzle off, no action for the platform
 
@@ -172,9 +154,9 @@ class IcingStage(Stage):
 
         for c in new_commands:
             if IcingStage.Actuators.carriage in c:
-                old_dest = c[IcingStage.Actuators.carriage]
+                old_dest = c[IcingStage.WrapperID.carriage]
                 new_dest = self._shift_point(old_dest, pos)
-                c[IcingStage.Actuators.carriage] = new_dest
+                c[IcingStage.WrapperID.carriage] = new_dest
 
         return new_commands
 

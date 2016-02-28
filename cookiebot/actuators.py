@@ -8,6 +8,7 @@ import logging
 import abc
 from uuid import uuid1
 from cookiebot.multithreading import RepeatedTimer
+from __builtin__ import False
 
 
 class Actuator(object):
@@ -258,6 +259,32 @@ class StepperActuator(Actuator):
         elif step == 1:
             # step forward oneStep
             pass
+
+
+class ActuatorWrapper(object):
+    '''A wrapper that bundles the function of one or more actuators'''
+
+    def __init__(self):
+        self._wrapped_actuators = {}
+
+    def unpause(self):
+        for act in self._wrapped_actuators.items():
+            act.unpause()
+
+    def pause(self):
+        for act in self._wrapped_actuators.items():
+            act.pause()
+
+    def send(self, command):
+        '''The primary method of each ActuatorWrapper - implement the custom
+        behavior needed to generate the actuator task, then set the task'''
+        pass
+
+    @property
+    def ready(self):
+        '''Determine if all actuators can receive a command'''
+        readystates = (Actuator.State.ready, Actuator.State.executing)
+        return all([act.state in readystates for act in self._wrapped_actuators.items()])
 
 
 class CommandError(Exception):
