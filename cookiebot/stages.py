@@ -6,7 +6,7 @@ Created on Jan 18, 2016
 from cookiebot.actuators import StepperActuator, ActuatorWrapper
 from cookiebot.multithreading import RepeatedTimer
 import enum
-from __builtin__ import False
+import logging
 
 
 class Stage(object):
@@ -40,13 +40,21 @@ class IcingStage(Stage):
         nozzle = 2  # non-blocking
 
     class CarriageWrapper(ActuatorWrapper):
-        pass
+
+        def __init__(self):
+            super(IcingStage.CarriageWrapper, self).__init__()
 
     class NozzleWrapper(ActuatorWrapper):
-        pass
+
+        def __init__(self):
+            super(IcingStage.NozzleWrapper, self).__init__()
 
     class PlatformWrapper(ActuatorWrapper):
-        pass
+
+        def __init__(self):
+            super(IcingStage.PlatformWrapper, self).__init__()
+
+    logger = logging.getLogger('cookiebot.Stage.IcingStage')
 
     def __init__(self):
         '''
@@ -61,14 +69,21 @@ class IcingStage(Stage):
         self.x_cookie_shift = (1.0, 3.0)
         self.y_cookie_shift = (1.0, 3.0)
 
-        self.recipe_timer = RepeatedTimer(0.05, self._check_recipe)
-        self.recipe_timer.stop()
+        self._wrappers = {
+            IcingStage.WrapperID.carriage: IcingStage.CarriageWrapper(),
+            IcingStage.WrapperID.nozzle: IcingStage.NozzleWrapper(),
+            IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
+        }
+
+        self._recipe_timer = RepeatedTimer(1.0, self._check_recipe)
+        self._recipe_timer.stop()
 
     def start_recipe(self):
-        self.recipe_timer.restart()
+        self.logger.info('Starting recipe')
+        self._recipe_timer.restart()
 
     def stop_recipe(self):
-        self.recipe_timer.stop()
+        self._recipe_timer.stop()
 
     def _check_recipe(self):
         '''Frequently-called method that checks if another step of the recipe
@@ -77,17 +92,18 @@ class IcingStage(Stage):
         if self.steps and self._actuators_ready:
             # we need to start the next command
             next_step, self.steps = self.steps[0], self.steps[1:]
+            self.logger.info('Executing step {0}'.format(next_step))
 
-            for actuator, command in next_step:
+            for actuator, command in next_step.items():
                 self._wrappers[actuator].pause()
                 self._wrappers[actuator].send(command)
 
-            for actuator, command in next_step:
+            for actuator, command in next_step.items():
                 self._wrappers[actuator].unpause()
 
     @property
     def _actuators_ready(self):
-        return all([wrapper.ready for wrapper in self._wrappers.items()])
+        return all([w.ready for w in self._wrappers.values()])
 
     def load_recipe(self, recipe):
         parsed = []
@@ -97,10 +113,10 @@ class IcingStage(Stage):
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
-                       IcingStage.WrapperID.platform: self.platform_max
+                       IcingStage.WrapperID.platform: True
                        })
 
-        for cookie_pos, cookie_spec in recipe.cookies.iteritem():
+        for cookie_pos, cookie_spec in recipe.cookies.iteritems():
             icing_coms = self._load_icing_file(cookie_spec['icing'])
             offset_coms = self._offset_commands(icing_coms, cookie_pos)
             parsed.extend(offset_coms)
@@ -110,7 +126,7 @@ class IcingStage(Stage):
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
-                       IcingStage.WrapperID.platform: 0
+                       IcingStage.WrapperID.platform: False
                        })
 
         self.steps = parsed[:]
@@ -153,7 +169,7 @@ class IcingStage(Stage):
         new_commands = dict(commands)
 
         for c in new_commands:
-            if IcingStage.Actuators.carriage in c:
+            if IcingStage.WrapperID.carriage in c:
                 old_dest = c[IcingStage.WrapperID.carriage]
                 new_dest = self._shift_point(old_dest, pos)
                 c[IcingStage.WrapperID.carriage] = new_dest
@@ -163,14 +179,18 @@ class IcingStage(Stage):
     def _shift_point(self, coord, cookiepos):
         '''Shift a single coordinate based on the cookiepos it belongs to'''
 
-        x = self.x_cookie_shift[0] + coord[0] + cookiepos[0] * self.x_cookie_shift[1]
-        y = self.y_cookie_shift[0] + coord[1] + cookiepos[1] * self.y_cookie_shift[1]
+        x = self.x_cookie_shift[0] + coord[0] + \
+            cookiepos[0] * self.x_cookie_shift[1]
+        y = self.y_cookie_shift[0] + coord[1] + \
+            cookiepos[1] * self.y_cookie_shift[1]
 
         return (x, y)
 
 
 def main():
     from cookiebot.recipe import Recipe, RecipeError
+
+    logging.basicConfig(level=logging.DEBUG)
 
     r = Recipe()
     r.add_cookie({'icing': Recipe.IcingType.square}, (0, 0))

@@ -268,11 +268,11 @@ class ActuatorWrapper(object):
         self._wrapped_actuators = {}
 
     def unpause(self):
-        for act in self._wrapped_actuators.items():
+        for act in self._wrapped_actuators.values():
             act.unpause()
 
     def pause(self):
-        for act in self._wrapped_actuators.items():
+        for act in self._wrapped_actuators.values():
             act.pause()
 
     def send(self, command):
@@ -284,7 +284,7 @@ class ActuatorWrapper(object):
     def ready(self):
         '''Determine if all actuators can receive a command'''
         readystates = (Actuator.State.ready, Actuator.State.executing)
-        return all([act.state in readystates for act in self._wrapped_actuators.items()])
+        return all([act.state in readystates for act in self._wrapped_actuators.values()])
 
 
 class CommandError(Exception):

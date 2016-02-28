@@ -23,10 +23,10 @@ class Recipe(object):
     each stage to convert the Recipe to real instructions
     '''
     @enum.unique
-    class IcingType(enum):
+    class IcingType(enum.Enum):
         star = '../data/icing_patterns/star.txt'
-        square = '../data/icing_patterns/star.txt'
-        duke = '../data/icing_patterns/star.txt'
+        square = '../data/icing_patterns/square.txt'
+        duke = '../data/icing_patterns/duke.txt'
 
     def __init__(self):
         self.cookies = {}
