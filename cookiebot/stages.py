@@ -27,6 +27,7 @@ class Stage(object):
         '''
         pass
 
+
 class IcingStage(Stage):
     '''
     classdocs

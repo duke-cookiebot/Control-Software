@@ -8,8 +8,12 @@ import logging
 import atexit
 from uuid import uuid1
 from cookiebot.multithreading import RepeatedTimer
-from Adafruit_MotorHAT import Adafruit_MotorHAT
-MotorHat = Adafruit_MotorHAT.Adafruit_MotorHAT
+
+onPI = False
+
+if onPI:
+    from Adafruit_MotorHAT import Adafruit_MotorHAT
+    MotorHat = Adafruit_MotorHAT.Adafruit_MotorHAT
 
 
 class Actuator(object):
@@ -196,10 +200,16 @@ class StepperActuator(Actuator):
     function of each is described in Actuator.
     '''
     class StepType(enum.IntEnum):
-        single = MotorHat.SINGLE
-        double = MotorHat.DOUBLE
-        micro = MotorHat.INTERLEAVE
-        interleave = MotorHat.INTERLEAVE
+        if onPI:
+            single = MotorHat.SINGLE
+            double = MotorHat.DOUBLE
+            micro = MotorHat.INTERLEAVE
+            interleave = MotorHat.INTERLEAVE
+        else:
+            single = 0
+            double = 1
+            micro = 2
+            interleave = 3
 
     logger = logging.getLogger('cookiebot.Actuator.StepperActuator')
 
@@ -211,7 +221,7 @@ class StepperActuator(Actuator):
                  addr=0x60,
                  steps_per_rev=200,
                  stepper_num=1,
-                 step_type=StepperActuator.StepType.single):
+                 step_type=StepType.single):
         '''
         Constructor
 
@@ -227,8 +237,9 @@ class StepperActuator(Actuator):
             identify=identity, run_interval=run_interval)
 
         self.step_style = step_type
-        self.hat = MotorHat(addr=addr)
-        self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
+        if onPI:
+            self.hat = MotorHat(addr=addr)
+            self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
 
         ''' do the things that zero the stepper position here
         
