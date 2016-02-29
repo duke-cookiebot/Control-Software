@@ -6,7 +6,6 @@ Created on Feb 27, 2016
 import time
 from threading import Event, Thread
 
-
 class RepeatedTimer(object):
     """Repeat `function` every `interval` seconds.
 
@@ -51,10 +50,10 @@ def demo():
             print 'ID {0}, time {1}, did a thing {2} times'.format(id, time.time() - start, counter[0])
 
     start = time.time()
-    res = 1000
+    res = 2000
     res2 = 200
     t = RepeatedTimer(1.0 / res, lambda: countup('1st', count, start, res))
-    t2 = RepeatedTimer(1.0 / res2, lambda: countup('2nd', othercount, start, 275))
+    t2 = RepeatedTimer(1.0 / res2, lambda: countup('2nd', othercount, start, res2))
 
     time.sleep(8)
 
