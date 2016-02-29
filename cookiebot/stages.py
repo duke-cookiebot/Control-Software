@@ -7,6 +7,7 @@ from cookiebot.actuators import StepperActuator, ActuatorWrapper
 from cookiebot.multithreading import RepeatedTimer
 import enum
 import logging
+from ast import literal_eval
 
 
 class Stage(object):
@@ -65,8 +66,8 @@ class IcingStage(Stage):
         self.steps = []
 
         # Set up assorted parameters
-        self.x_cookie_shift = (1.0, 3.0)
-        self.y_cookie_shift = (1.0, 3.0)
+        self.x_cookie_shift = (3.0, 4.0)
+        self.y_cookie_shift = (3.0, 4.0)
 
         self._wrappers = {
             IcingStage.WrapperID.carriage: IcingStage.CarriageWrapper(),
@@ -116,7 +117,7 @@ class IcingStage(Stage):
                        })
 
         for cookie_pos, cookie_spec in recipe.cookies.iteritems():
-            icing_coms = self._load_icing_file(cookie_spec['icing'])
+            icing_coms = self._load_icing_file(cookie_spec['icing'].value)
             offset_coms = self._offset_commands(icing_coms, cookie_pos)
             parsed.extend(offset_coms)
 
@@ -150,8 +151,13 @@ class IcingStage(Stage):
 
         Assigned to Cynthia
         '''
+        coms = []
 
-        return []
+        with open(filename, 'r') as icingspec:
+            for line in icingspec:
+                coms.append(literal_eval(line))
+
+        return coms
 
     def _offset_commands(self, commands, pos):
         '''Take a list of command dictionaries and shift the positions based on
@@ -165,7 +171,7 @@ class IcingStage(Stage):
         Returns:
             An updated list of command dictionaries
         '''
-        new_commands = dict(commands)
+        new_commands = list(commands)
 
         for c in new_commands:
             if IcingStage.WrapperID.carriage in c:
