@@ -5,10 +5,11 @@ Created on Jan 18, 2016
 '''
 import enum
 import logging
-import abc
+import atexit
 from uuid import uuid1
 from cookiebot.multithreading import RepeatedTimer
-from __builtin__ import False
+from Adafruit_MotorHAT import Adafruit_MotorHAT
+MotorHat = Adafruit_MotorHAT.Adafruit_MotorHAT
 
 
 class Actuator(object):
@@ -194,14 +195,23 @@ class StepperActuator(Actuator):
     The class must override the five private methods from Actuator - the
     function of each is described in Actuator.
     '''
+    class StepType(enum.IntEnum):
+        single = MotorHat.SINGLE
+        double = MotorHat.DOUBLE
+        micro = MotorHat.INTERLEAVE
+        interleave = MotorHat.INTERLEAVE
 
-    logger = logging.getLogger('CookieBot.Actuator.StepperActuator')
+    logger = logging.getLogger('cookiebot.Actuator.StepperActuator')
 
     def __init__(self,
                  identity='',
                  run_interval=0.1,
                  dist_per_step=1.0,
-                 max_dist=float('inf')):
+                 max_dist=float('inf'),
+                 addr=0x60,
+                 steps_per_rev=200,
+                 stepper_num=1,
+                 step_type=StepperActuator.StepType.single):
         '''
         Constructor
 
@@ -216,10 +226,15 @@ class StepperActuator(Actuator):
         super(StepperActuator, self).__init__(
             identify=identity, run_interval=run_interval)
 
+        self.step_style = step_type
+        self.hat = MotorHat(addr=addr)
+        self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
+
         ''' do the things that zero the stepper position here
         
         
         '''
+
         self.step_pos = 0
         self.step_size = dist_per_step
         self.max_steps = max_dist / self.step_size
@@ -255,10 +270,11 @@ class StepperActuator(Actuator):
         self.step_pos += step
         if step == -1:
             # step back oneStep
-            pass
+            self.stepper.oneStep(MotorHat.BACKWARD, self.step_style)
         elif step == 1:
             # step forward oneStep
-            pass
+            self.stepper.oneStep(MotorHat.FORWARD, self.step_style)
+
 
 
 class ActuatorWrapper(object):
