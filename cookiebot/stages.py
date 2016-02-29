@@ -25,9 +25,7 @@ class Stage(object):
         '''
         Constructor
         '''
-
-        self.busy = False
-
+        pass
 
 class IcingStage(Stage):
     '''
@@ -75,7 +73,7 @@ class IcingStage(Stage):
             IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
         }
 
-        self._recipe_timer = RepeatedTimer(1.0, self._check_recipe)
+        self._recipe_timer = RepeatedTimer(0.05, self._check_recipe)
         self._recipe_timer.stop()
 
     def start_recipe(self):
