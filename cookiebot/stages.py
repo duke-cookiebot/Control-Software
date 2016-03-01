@@ -51,8 +51,8 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                run_interval=0.05,
-                dist_per_step=0.1,
+                run_interval=0.005,
+                dist_per_step=0.01,
                 max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
@@ -63,8 +63,8 @@ class IcingStage(Stage):
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                run_interval=0.05,
-                dist_per_step=0.1,
+                run_interval=0.005,
+                dist_per_step=0.02,
                 max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
@@ -84,16 +84,32 @@ class IcingStage(Stage):
             step_delta = (
                 int(deltas[0] / xmotor.step_size), int(deltas[1] / ymotor.step_size))
 
-            print 'Need to move {0} steps from {1} to {2}'.format(step_delta, pos, dest)
+            self.logger.debug(
+                'Need to move {0} steps from {1} to {2}'.format(step_delta, pos, dest))
+
+            step_points = self.bresenham((0, 0), step_delta)
+            step_points.append(step_delta)
+
+            print 'Points are {0}'.format(step_points)
+
+            xsteps = []
+            ysteps = []
+
+            last_p = (0, 0)
+            for p in step_points:
+                xsteps.append(cmp(p[0], last_p[0]))
+                ysteps.append(cmp(p[1], last_p[1]))
+                last_p = p
+
+            print 'Xsteps: {0}'.format(xsteps)
+            print 'Ysteps: {0}'.format(ysteps)
 
             xmotor.set_task(
-                task=array.array('b', [cmp(step_delta[0], 0)
-                                       for _ in xrange(abs(step_delta[0]))]),
+                task=array.array('b', xsteps),
                 blocking=True)
 
             ymotor.set_task(
-                task=array.array('b', [cmp(step_delta[1], 0)
-                                       for _ in xrange(abs(step_delta[1]))]),
+                task=array.array('b', ysteps),
                 blocking=True)
 
         def bresenham(self, start_point, end_point):
@@ -142,7 +158,7 @@ class IcingStage(Stage):
             # Iterate over bounding box generating points between start and end
             y = y1
             points = []
-            for x in range(x1 + 1, x2 - 1):
+            for x in xrange(x1, x2):
                 coord = (y, x) if is_steep else (x, y)
                 points.append(coord)
                 error -= abs(dy)
