@@ -90,8 +90,6 @@ class IcingStage(Stage):
             step_points = self.bresenham((0, 0), step_delta)
             step_points.append(step_delta)
 
-            print 'Points are {0}'.format(step_points)
-
             xsteps = []
             ysteps = []
 
@@ -101,8 +99,8 @@ class IcingStage(Stage):
                 ysteps.append(cmp(p[1], last_p[1]))
                 last_p = p
 
-            print 'Xsteps: {0}'.format(xsteps)
-            print 'Ysteps: {0}'.format(ysteps)
+            self.logger.debug('Xsteps: {0}'.format(xsteps))
+            self.logger.debug('Ysteps: {0}'.format(ysteps))
 
             xmotor.set_task(
                 task=array.array('b', xsteps),
@@ -193,9 +191,11 @@ class IcingStage(Stage):
             act = self._wrapped_actuators['nozzle']
 
             if not bool_command:
+                self.logger.debug('Sending an empty task to turn off the nozzle')
                 act.set_task([])
             else:
                 ticks_to_go = act.max_steps - act.step_pos
+                self.logger.debug('Sending {0} forward steps to keep the nozzle running until 1. it runs out or 2. the task is changed'.format(ticks_to_go))
 
                 act.set_task(
                     array.array('b', [1 for _ in xrange(ticks_to_go)]))

@@ -15,6 +15,8 @@ onPI = False
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT
     MotorHat = Adafruit_MotorHAT.Adafruit_MotorHAT
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BOARD)
 
 
 class Actuator(object):
@@ -240,7 +242,15 @@ class StepperActuator(Actuator):
     def go_to_zero(self, pin_to_listen):
 
         # do stuff here - how does GPIO work?
+        
+        GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        
+        while GPIO.input(pin_to_listen) == GPIO.LOW:
+            time.sleep(0.02)
+            self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
+
         self.step_pos = 0
+        
 
     @property
     def real_pos(self):
@@ -334,8 +344,18 @@ class ExecutionError(Exception):
 
 
 def main():
-    test_stepper = StepperActuator(
-        identity='test stepper',
+    ts1 = StepperActuator(
+        identity='test stepper 1',
+        run_interval=0.01,
+        dist_per_step=1.0,
+        max_dist=float('inf'),
+        addr=0x60,
+        steps_per_rev=200,
+        stepper_num=1,
+    )
+    
+    ts2 = StepperActuator(
+        identity='test stepper 2',
         run_interval=0.01,
         dist_per_step=1.0,
         max_dist=float('inf'),
