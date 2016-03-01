@@ -8,6 +8,7 @@ import logging
 import atexit
 from uuid import uuid1
 from cookiebot.multithreading import RepeatedTimer
+from __builtin__ import False
 
 onPI = False
 
@@ -71,7 +72,7 @@ class Actuator(object):
             self.logger.error(
                 'Invalid task provided to actuator {0}'.format(self))
             raise CommandError(
-                'Task {0} is not valid for actautor {1}'.format(task, self))
+                'Task {0} is not valid for actuator {1}'.format(task, self))
 
         self._task = task
         self._task_is_blocking = blocking
@@ -82,19 +83,14 @@ class Actuator(object):
         Raises ExecutionError if something goes wrong
         '''
 
-        if self.state == Actuator.State.dead:
-            self.logger.error(
-                'Cannot set tasks on {0} because it is dead'.format(self))
-            raise ExecutionError('Actuator is dead and cannot be commanded')
-
         if self._task and self.state == Actuator.State.ready:
             self.state = Actuator.State.executing_blocked if self._task_is_blocking else Actuator.State.executing
 
         if self.state == Actuator.State.executing or self.state == Actuator.State.executing_blocked:
             if not self._check_bounds():
-                self.kill()
-                raise ExecutionError(
-                    'Bounds of {0} violated, actuator killed'.format(self))
+                self.state = Actuator.State.dead
+                self.logger.error(
+                    'Bounds violated, setting state of {0} to dead'.format(self))
 
             if self._task_is_complete():
                 self.state = Actuator.State.ready
@@ -102,26 +98,34 @@ class Actuator(object):
             else:
                 try:
                     self._execute_task()
-
                 except ExecutionError as e:
-                    self.logger.error('Unable to execute task')
-                    raise e
+                    self.logger.error(
+                        'Execution failed with error {0}'.format(e))
+                    self.logger.error(
+                        'Setting actuator to dead on account of error')
+                    self.state = Actuator.State.dead
 
     def kill(self):
         '''Public API method - kill this actuator
 
         Prevents setting or executing tasks in the future.  Attempts to halt
         actuator
+
+        DOES NOT stop the execution of the RepeatedTimer
+        Because that causes a "joining self" error on the thread
         '''
 
-        self.logger.info('Killing actuator {0}'.format(self))
+        self.logger.info(
+            'Killing actuator {0} and stopping thread'.format(self))
         self.state = Actuator.State.dead
         self.pause()
 
     def pause(self):
+        self.logger.debug('Pausing thread for actuator {0}'.format(self))
         self._timer.stop()
 
     def unpause(self):
+        self.logger.debug('Unpausing thread for actuator {0}'.format(self))
         self._timer.restart()
 
     def _check_bounds(self):
@@ -240,7 +244,7 @@ class StepperActuator(Actuator):
 
     @property
     def real_pos(self):
-        return self.step_pos / self.step_size
+        return self.step_pos * self.step_size
 
     def _check_bounds(self):
         return (self.step_pos >= 0 and self.step_pos <= self.max_steps)
@@ -278,7 +282,6 @@ class ActuatorWrapper(object):
     '''
 
     def __init__(self):
-        print 'Are you even trying?'
         self._wrapped_actuators = {}
 
     def unpause(self):
@@ -298,11 +301,18 @@ class ActuatorWrapper(object):
         behavior needed to generate the actuator task, then set the task'''
         pass
 
-    @property
-    def ready(self):
+    def check_ready(self):
         '''Determine if all actuators can receive a command'''
         readystates = (Actuator.State.ready, Actuator.State.executing)
-        return all([act.state in readystates for act in self._wrapped_actuators.values()])
+
+        for act in self._wrapped_actuators.values():
+            if act.state == Actuator.State.dead:
+                raise ExecutionError(
+                    'Actuator {0} died, cannot be ready'.format(act))
+            elif act.state not in readystates:
+                return False
+
+        return True
 
 
 class CommandError(Exception):

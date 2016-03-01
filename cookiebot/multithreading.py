@@ -32,15 +32,16 @@ class RepeatedTimer(object):
         return self.interval - ((time.time() - self.start) % self.interval)
 
     def stop(self):
-        self.event.set()
-        self.thread.join()
-        self.running = False
+        if self.running:
+            self.event.set()
+            self.my_thread.join()
+            self.running = False
 
     def restart(self):
         if not self.running:
             self.event = Event()
-            self.thread = Thread(target=self._target)
-            self.thread.start()
+            self.my_thread = Thread(target=self._target)
+            self.my_thread.start()
             self.running = True
 
 

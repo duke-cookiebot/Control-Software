@@ -3,7 +3,7 @@ Created on Jan 18, 2016
 
 @author: justinpalpant
 '''
-from cookiebot.actuators import StepperActuator, ActuatorWrapper
+from cookiebot.actuators import StepperActuator, ActuatorWrapper, ExecutionError
 from cookiebot.multithreading import RepeatedTimer
 import enum
 import logging
@@ -28,7 +28,7 @@ class Stage(object):
         '''
         Constructor
         '''
-        pass
+        self.live = True
 
 
 class IcingStage(Stage):
@@ -84,7 +84,17 @@ class IcingStage(Stage):
             step_delta = (
                 int(deltas[0] / xmotor.step_size), int(deltas[1] / ymotor.step_size))
 
-            print 'Need to move {0} steps from {1}'.format(step_delta, pos)
+            print 'Need to move {0} steps from {1} to {2}'.format(step_delta, pos, dest)
+
+            xmotor.set_task(
+                task=array.array('b', [cmp(step_delta[0], 0)
+                                       for _ in xrange(abs(step_delta[0]))]),
+                blocking=True)
+
+            ymotor.set_task(
+                task=array.array('b', [cmp(step_delta[1], 0)
+                                       for _ in xrange(abs(step_delta[1]))]),
+                blocking=True)
 
         def bresenham(self, start_point, end_point):
             """Bresenham's line tracing algorithm, from roguebasin source
@@ -250,10 +260,17 @@ class IcingStage(Stage):
             actuator.pause()
 
     def recipe_done(self):
-        return not self.steps and self._actuators_ready
+        return not self.steps and self._check_actuators()
 
     def shutdown(self):
+        '''This recipe completely stops the execution of the stage
+
+        It CANNOT BE CALLED by the self._recipe_timer, in any way
+        '''
+
+        self.steps = []
         self._recipe_timer.stop()
+        self.live = False
         for act in self._wrappers.values():
             act.kill()
 
@@ -261,7 +278,7 @@ class IcingStage(Stage):
         '''Frequently-called method that checks if another step of the recipe
         should be executed, and executes it if so'''
 
-        if self.steps and self._actuators_ready:
+        if self.live and self.steps and self._check_actuators():
             # we need to start the next command
             next_step, self.steps = self.steps[0], self.steps[1:]
             self.logger.info('Executing step {0}'.format(next_step))
@@ -273,9 +290,21 @@ class IcingStage(Stage):
             for actuator, command in next_step.items():
                 self._wrappers[actuator].unpause()
 
-    @property
-    def _actuators_ready(self):
-        return all([w.ready for w in self._wrappers.values()])
+    def _check_actuators(self):
+        for w in self._wrappers.values():
+            try:
+                ready = w.check_ready()
+            except ExecutionError as e:
+                self.logger.error(
+                    'Wrapper says actuator is dead with error {0}'.format(e))
+                self.logger.error('Terminating stage')
+                self.live = False
+                return False
+
+            if not ready:
+                return False
+
+        return True
 
     def load_recipe(self, recipe):
         parsed = []
@@ -386,10 +415,13 @@ def main():
     starttime = time.time()
     stage.start_recipe()
 
-    while not stage.recipe_done():
+    while not stage.recipe_done() and stage.live:
         time.sleep(0.1)
 
-    print 'Finished the recipe in {0} seconds!'.format(time.time() - starttime)
+    if not stage.live:
+        print 'Stage finished with an error'
+    else:
+        print 'Finished the recipe in {0} seconds!'.format(time.time() - starttime)
 
     stage.shutdown()
 
