@@ -13,13 +13,15 @@ class RepeatedTimer(object):
     See http://stackoverflow.com/a/33054922/5370002 for more
     """
 
-    def __init__(self, interval, function, *args, **kwargs):
+    def __init__(self, interval, function, start=True, *args, **kwargs):
         self.interval = interval
         self.function = function
         self.args = args
         self.kwargs = kwargs
         self.start = time.time()
-        self.restart()
+        self.running = False
+        if start:
+            self.restart()
 
     def _target(self):
         while not self.event.wait(self._time):
@@ -32,11 +34,14 @@ class RepeatedTimer(object):
     def stop(self):
         self.event.set()
         self.thread.join()
+        self.running = False
 
     def restart(self):
-        self.event = Event()
-        self.thread = Thread(target=self._target)
-        self.thread.start()
+        if not self.running:
+            self.event = Event()
+            self.thread = Thread(target=self._target)
+            self.thread.start()
+            self.running = True
 
 
 def demo():

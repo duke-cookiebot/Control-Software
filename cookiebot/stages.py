@@ -9,6 +9,7 @@ import enum
 import logging
 from ast import literal_eval
 import array
+import time
 
 
 class Stage(object):
@@ -41,6 +42,7 @@ class IcingStage(Stage):
         nozzle = 2  # non-blocking
 
     class CarriageWrapper(ActuatorWrapper):
+        logger = logging.getLogger('cookiebot.ActuatorWrapper.CarriageWrapper')
 
         def __init__(self):
             super(IcingStage.CarriageWrapper, self).__init__()
@@ -49,25 +51,102 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                run_interval=0.005,
-                dist_per_step=1.0,
+                run_interval=0.05,
+                dist_per_step=0.1,
                 max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=1,
             )
+
+            self._wrapped_actuators['xmotor'].go_to_zero(0)
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                run_interval=0.005,
-                dist_per_step=1.0,
+                run_interval=0.05,
+                dist_per_step=0.1,
                 max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=1,
             )
 
+            self._wrapped_actuators['xmotor'].go_to_zero(1)
+
+        def send(self, dest):
+            xmotor = self._wrapped_actuators['xmotor']
+            ymotor = self._wrapped_actuators['ymotor']
+
+            step_pos = (xmotor.step_pos, ymotor.step_pos)
+            pos = (xmotor.real_pos, ymotor.real_pos)
+            deltas = (dest[0] - pos[0], dest[1] - pos[1])
+
+            step_delta = (
+                int(deltas[0] / xmotor.step_size), int(deltas[1] / ymotor.step_size))
+
+            print 'Need to move {0} steps from {1}'.format(step_delta, pos)
+
+        def bresenham(self, start_point, end_point):
+            """Bresenham's line tracing algorithm, from roguebasin source
+
+            Inputs:
+                start_point: (x,y) pair of integer indices representing the grid 
+                    cell where the ray begins
+                end_point: (x,y) pair of integer indices representing the grid cell
+                    where the ray stops
+            Outputs:
+                intersected_points: list of (x,y) pairs intersected by the line 
+                    between the start and end points.  Does not include the start 
+                    or end points
+            """
+
+            # Setup initial conditions
+            x1, y1 = start_point
+            x2, y2 = end_point
+            dx = x2 - x1
+            dy = y2 - y1
+
+            # Determine how steep the line is
+            is_steep = abs(dy) > abs(dx)
+
+            # Rotate line
+            if is_steep:
+                x1, y1 = y1, x1
+                x2, y2 = y2, x2
+
+            # Swap start and end points if necessary and store swap state
+            swapped = False
+            if x1 > x2:
+                x1, x2 = x2, x1
+                y1, y2 = y2, y1
+                swapped = True
+
+            # Recalculate differentials
+            dx = x2 - x1
+            dy = y2 - y1
+
+            # Calculate error
+            error = int(dx / 2.0)
+            ystep = 1 if y1 < y2 else -1
+
+            # Iterate over bounding box generating points between start and end
+            y = y1
+            points = []
+            for x in range(x1 + 1, x2 - 1):
+                coord = (y, x) if is_steep else (x, y)
+                points.append(coord)
+                error -= abs(dy)
+                if error < 0:
+                    y += ystep
+                    error += dx
+
+            # Reverse the list if the coordinates were swapped
+            if swapped:
+                points.reverse()
+            return points
+
     class NozzleWrapper(ActuatorWrapper):
+        logger = logging.getLogger('cookiebot.ActuatorWrapper.NozzleWrapper')
 
         def __init__(self):
             super(IcingStage.NozzleWrapper, self).__init__()
@@ -76,8 +155,8 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                run_interval=0.01,
-                dist_per_step=1.0,
+                run_interval=0.5,
+                dist_per_step=0.001,
                 max_dist=3.0,
                 addr=0x60,
                 steps_per_rev=200,
@@ -97,32 +176,42 @@ class IcingStage(Stage):
 
     class PlatformWrapper(ActuatorWrapper):
 
+        logger = logging.getLogger('cookiebot.ActuatorWrapper.PlatformWrapper')
+
         def __init__(self):
             super(IcingStage.PlatformWrapper, self).__init__()
 
             # set connection to stepper parameters here
             # addr, stepper_num, and dist_per_step especially are crucial
+            # also the value of go_to_zero
             self._wrapped_actuators['platform'] = StepperActuator(
                 identity='Platform Stepper',
                 run_interval=0.01,
-                dist_per_step=1.0,
+                dist_per_step=0.05,
                 max_dist=6.0,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=1,
             )
+            self._wrapped_actuators['platform'].go_to_zero(2)
 
         def send(self, bool_command):
             act = self._wrapped_actuators['platform']
 
             if bool_command:
-                ticks_to_go = act.step_pos
-                act.set_task(
-                    array.array('b', [-1 for _ in xrange(ticks_to_go)]))
-            else:
                 ticks_to_go = act.max_steps - act.step_pos
                 act.set_task(
-                    array.array('b', [1 for _ in xrange(ticks_to_go)]))
+                    task=array.array('b', [1 for _ in xrange(ticks_to_go)]),
+                    blocking=True)
+                self.logger.debug(
+                    'Sending {0} forward steps'.format(ticks_to_go))
+            else:
+                ticks_to_go = act.step_pos
+                act.set_task(
+                    task=array.array('b', [-1 for _ in xrange(ticks_to_go)]),
+                    blocking=True)
+                self.logger.debug(
+                    'Sending {0} backwards steps'.format(ticks_to_go))
 
     logger = logging.getLogger('cookiebot.Stage.IcingStage')
 
@@ -136,17 +225,17 @@ class IcingStage(Stage):
         self.steps = []
 
         # Set up assorted parameters
-        self.x_cookie_shift = (3.0, 4.0)
-        self.y_cookie_shift = (3.0, 4.0)
+        self.x_cookie_shift = (9.0, 4.0)
+        self.y_cookie_shift = (9.0, 4.0)
 
         self._wrappers = {
             IcingStage.WrapperID.carriage: IcingStage.CarriageWrapper(),
-            #IcingStage.WrapperID.nozzle: IcingStage.NozzleWrapper(),
-            #IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
+            IcingStage.WrapperID.nozzle: IcingStage.NozzleWrapper(),
+            IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
         }
 
-        self._recipe_timer = RepeatedTimer(0.1, self._check_recipe)
-        self._recipe_timer.stop()
+        self._recipe_timer = RepeatedTimer(
+            0.25, self._check_recipe, start=False)
 
     def start_recipe(self):
         self.logger.info('Starting recipe')
@@ -159,6 +248,14 @@ class IcingStage(Stage):
         self._recipe_timer.stop()
         for actuator in self._wrappers.values():
             actuator.pause()
+
+    def recipe_done(self):
+        return not self.steps and self._actuators_ready
+
+    def shutdown(self):
+        self._recipe_timer.stop()
+        for act in self._wrappers.values():
+            act.kill()
 
     def _check_recipe(self):
         '''Frequently-called method that checks if another step of the recipe
@@ -286,7 +383,15 @@ def main():
         print 'Something is wrong with that recipe file!'
         return
 
+    starttime = time.time()
     stage.start_recipe()
+
+    while not stage.recipe_done():
+        time.sleep(0.1)
+
+    print 'Finished the recipe in {0} seconds!'.format(time.time() - starttime)
+
+    stage.shutdown()
 
 if __name__ == '__main__':
     main()

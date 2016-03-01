@@ -25,7 +25,7 @@ class Actuator(object):
     will take different arguments)  It also defines some private methods that
     SHOULD or MUST be overridden in order to have a real, functioning actuator
     '''
-    logger = logging.getLogger('CookieBot.Actuator')
+    logger = logging.getLogger('cookiebot.Actuator')
 
     @enum.unique
     class State(enum.IntEnum):
@@ -42,13 +42,13 @@ class Actuator(object):
         execution.
         '''
         self.state = Actuator.State.ready
-        self.id = identity if identity else str(uuid1())
+        self.identity = identity if identity else str(uuid1())
         self._task = None
 
         self._timer = RepeatedTimer(run_interval, self._run_execution)
 
     def __str__(self):
-        return self.id
+        return self.identity
 
     def set_task(self, task=None, blocking=False):
         '''Public API for assigning a task to an actuator
@@ -58,7 +58,7 @@ class Actuator(object):
 
         if self.state is Actuator.State.dead:
             self.logger.error(
-                'Cannot set tasks on {0} because it is dead'.format(self.id))
+                'Cannot set tasks on {0} because it is dead'.format(self))
             raise CommandError('Actuator is dead and cannot be commanded')
 
         if self.state is Actuator.State.executing_blocked:
@@ -69,9 +69,9 @@ class Actuator(object):
 
         if not self._validate_task(task):
             self.logger.error(
-                'Invalid task provided to actuator {0}'.format(self.id))
+                'Invalid task provided to actuator {0}'.format(self))
             raise CommandError(
-                'Task {0} is not valid for actautor {1}'.format(task, self.id))
+                'Task {0} is not valid for actautor {1}'.format(task, self))
 
         self._task = task
         self._task_is_blocking = blocking
@@ -84,19 +84,21 @@ class Actuator(object):
 
         if self.state == Actuator.State.dead:
             self.logger.error(
-                'Cannot set tasks on {0} because it is dead'.format(self.id))
+                'Cannot set tasks on {0} because it is dead'.format(self))
             raise ExecutionError('Actuator is dead and cannot be commanded')
 
         if self._task and self.state == Actuator.State.ready:
             self.state = Actuator.State.executing_blocked if self._task_is_blocking else Actuator.State.executing
 
-        if self._task and (self.state == Actuator.State.executing or self.state == Actuator.State.executing_blocked):
+        if self.state == Actuator.State.executing or self.state == Actuator.State.executing_blocked:
             if not self._check_bounds():
                 self.kill()
-                raise ExecutionError('Bounds violated, actuator killed')
+                raise ExecutionError(
+                    'Bounds of {0} violated, actuator killed'.format(self))
 
             if self._task_is_complete():
                 self.state = Actuator.State.ready
+                self.logger.debug('Done with task for {0}'.format(self))
             else:
                 try:
                     self._execute_task()
@@ -112,8 +114,8 @@ class Actuator(object):
         actuator
         '''
 
+        self.logger.info('Killing actuator {0}'.format(self))
         self.state = Actuator.State.dead
-        self._halt()
         self.pause()
 
     def pause(self):
@@ -134,15 +136,6 @@ class Actuator(object):
         '''
 
         return True
-
-    def _halt(self):
-        '''Private method that should do anything necessary to safely stop the
-        actuator
-
-        Should be uniquely implemented by each subclass
-
-        Void method, does not have to return anything
-        '''
 
     def _validate_task(self, task):
         '''Private method for determining if a task if valid for an actuator
@@ -229,33 +222,28 @@ class StepperActuator(Actuator):
 
         # superclass constructor
         super(StepperActuator, self).__init__(
-            identify=identity, run_interval=run_interval)
+            identity=identity, run_interval=run_interval)
 
         self.step_style = step_type
         if onPI:
             self.hat = MotorHat(addr=addr)
             self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
 
-        ''' do the things that zero the stepper position here
-        
-        
-        '''
-
         self.step_pos = 0
         self.step_size = dist_per_step
-        self.max_steps = max_dist / self.step_size
+        self.max_steps = int(max_dist / self.step_size)
+
+    def go_to_zero(self, pin_to_listen):
+
+        # do stuff here - how does GPIO work?
+        self.step_pos = 0
 
     @property
     def real_pos(self):
         return self.step_pos / self.step_size
 
     def _check_bounds(self):
-        return (self.step_pos > 0 and self.step_pos <= self.max_steps)
-
-    def _halt(self):
-        super(StepperActuator, self)._halt()
-        self._task = []
-        # do other things to quickly stop the stepper, if necessary
+        return (self.step_pos >= 0 and self.step_pos <= self.max_steps)
 
     def _validate_task(self, task):
         '''Check that task is an iterable containing only -1, 0 or 1'''
@@ -268,18 +256,19 @@ class StepperActuator(Actuator):
             return set(itertask) <= set((-1, 0, 1))
 
     def _task_is_complete(self):
-        return len(self._task) == 0
+        return not self._task
 
     def _execute_task(self):
         step, self._task = self._task[0], self._task[1:]  # aka generalized pop
 
         self.step_pos += step
-        if step == -1:
-            # step back oneStep
-            self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
-        elif step == 1:
-            # step forward oneStep
-            self.stepper.oneStep(MotorHat.FORWARD, self.step_style.value)
+        if onPI:
+            if step == -1:
+                # step back oneStep
+                self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
+            elif step == 1:
+                # step forward oneStep
+                self.stepper.oneStep(MotorHat.FORWARD, self.step_style.value)
 
 
 class ActuatorWrapper(object):
@@ -289,6 +278,7 @@ class ActuatorWrapper(object):
     '''
 
     def __init__(self):
+        print 'Are you even trying?'
         self._wrapped_actuators = {}
 
     def unpause(self):
@@ -298,6 +288,10 @@ class ActuatorWrapper(object):
     def pause(self):
         for act in self._wrapped_actuators.values():
             act.pause()
+
+    def kill(self):
+        for act in self._wrapped_actuators.values():
+            act.kill()
 
     def send(self, command):
         '''The primary method of each ActuatorWrapper - implement the custom
@@ -327,3 +321,19 @@ class ExecutionError(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+
+def main():
+    test_stepper = StepperActuator(
+        identity='test stepper',
+        run_interval=0.01,
+        dist_per_step=1.0,
+        max_dist=float('inf'),
+        addr=0x60,
+        steps_per_rev=200,
+        stepper_num=1,
+    )
+
+
+if __name__ == "__main__":
+    main()
