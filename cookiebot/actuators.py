@@ -82,7 +82,7 @@ class Actuator(object):
         Raises ExecutionError if something goes wrong
         '''
 
-        if self.state is Actuator.State.dead:
+        if self.state == Actuator.State.dead:
             self.logger.error(
                 'Cannot set tasks on {0} because it is dead'.format(self.id))
             raise ExecutionError('Actuator is dead and cannot be commanded')
@@ -97,7 +97,6 @@ class Actuator(object):
 
             if self._task_is_complete():
                 self.state = Actuator.State.ready
-                self._task = None
             else:
                 try:
                     self._execute_task()
@@ -105,10 +104,6 @@ class Actuator(object):
                 except ExecutionError as e:
                     self.logger.error('Unable to execute task')
                     raise e
-
-        if self._task is None:
-            self.logger.debug('Waiting for a task to be assigned')
-            self.logger.debug('Actuator state is {0}'.format(self.state))
 
     def kill(self):
         '''Public API method - kill this actuator
@@ -203,7 +198,7 @@ class StepperActuator(Actuator):
         if onPI:
             single = MotorHat.SINGLE
             double = MotorHat.DOUBLE
-            micro = MotorHat.INTERLEAVE
+            micro = MotorHat.MICROSTEP
             interleave = MotorHat.INTERLEAVE
         else:
             single = 0
@@ -221,7 +216,7 @@ class StepperActuator(Actuator):
                  addr=0x60,
                  steps_per_rev=200,
                  stepper_num=1,
-                 step_type=StepType.single):
+                 step_type=StepType.micro):
         '''
         Constructor
 
@@ -255,7 +250,7 @@ class StepperActuator(Actuator):
         return self.step_pos / self.step_size
 
     def _check_bounds(self):
-        return (self.step_pos > 0 and self.step_pos < self.max_steps)
+        return (self.step_pos > 0 and self.step_pos <= self.max_steps)
 
     def _halt(self):
         super(StepperActuator, self)._halt()
@@ -281,15 +276,17 @@ class StepperActuator(Actuator):
         self.step_pos += step
         if step == -1:
             # step back oneStep
-            self.stepper.oneStep(MotorHat.BACKWARD, self.step_style)
+            self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
         elif step == 1:
             # step forward oneStep
-            self.stepper.oneStep(MotorHat.FORWARD, self.step_style)
-
+            self.stepper.oneStep(MotorHat.FORWARD, self.step_style.value)
 
 
 class ActuatorWrapper(object):
-    '''A wrapper that bundles the function of one or more actuators'''
+    '''A wrapper that bundles the function of one or more actuators
+
+    This class is abstract and should not be instantiated in general
+    '''
 
     def __init__(self):
         self._wrapped_actuators = {}

@@ -8,6 +8,7 @@ from cookiebot.multithreading import RepeatedTimer
 import enum
 import logging
 from ast import literal_eval
+import array
 
 
 class Stage(object):
@@ -44,15 +45,84 @@ class IcingStage(Stage):
         def __init__(self):
             super(IcingStage.CarriageWrapper, self).__init__()
 
+            # set connection to stepper parameters here
+            # addr, stepper_num, and dist_per_step especially are crucial
+            self._wrapped_actuators['xmotor'] = StepperActuator(
+                identity='X-axis Stepper',
+                run_interval=0.005,
+                dist_per_step=1.0,
+                max_dist=16.0,
+                addr=0x60,
+                steps_per_rev=200,
+                stepper_num=1,
+            )
+
+            self._wrapped_actuators['ymotor'] = StepperActuator(
+                identity='Y-axis Stepper',
+                run_interval=0.005,
+                dist_per_step=1.0,
+                max_dist=16.0,
+                addr=0x60,
+                steps_per_rev=200,
+                stepper_num=1,
+            )
+
     class NozzleWrapper(ActuatorWrapper):
 
         def __init__(self):
             super(IcingStage.NozzleWrapper, self).__init__()
 
+            # set connection to stepper parameters here
+            # addr, stepper_num, and dist_per_step especially are crucial
+            self._wrapped_actuators['nozzle'] = StepperActuator(
+                identity='Nozzle Stepper',
+                run_interval=0.01,
+                dist_per_step=1.0,
+                max_dist=3.0,
+                addr=0x60,
+                steps_per_rev=200,
+                stepper_num=1,
+            )
+
+        def send(self, bool_command):
+            act = self._wrapped_actuators['nozzle']
+
+            if not bool_command:
+                act.set_task([])
+            else:
+                ticks_to_go = act.max_steps - act.step_pos
+
+                act.set_task(
+                    array.array('b', [1 for _ in xrange(ticks_to_go)]))
+
     class PlatformWrapper(ActuatorWrapper):
 
         def __init__(self):
             super(IcingStage.PlatformWrapper, self).__init__()
+
+            # set connection to stepper parameters here
+            # addr, stepper_num, and dist_per_step especially are crucial
+            self._wrapped_actuators['platform'] = StepperActuator(
+                identity='Platform Stepper',
+                run_interval=0.01,
+                dist_per_step=1.0,
+                max_dist=6.0,
+                addr=0x60,
+                steps_per_rev=200,
+                stepper_num=1,
+            )
+
+        def send(self, bool_command):
+            act = self._wrapped_actuators['platform']
+
+            if bool_command:
+                ticks_to_go = act.step_pos
+                act.set_task(
+                    array.array('b', [-1 for _ in xrange(ticks_to_go)]))
+            else:
+                ticks_to_go = act.max_steps - act.step_pos
+                act.set_task(
+                    array.array('b', [1 for _ in xrange(ticks_to_go)]))
 
     logger = logging.getLogger('cookiebot.Stage.IcingStage')
 
@@ -71,19 +141,24 @@ class IcingStage(Stage):
 
         self._wrappers = {
             IcingStage.WrapperID.carriage: IcingStage.CarriageWrapper(),
-            IcingStage.WrapperID.nozzle: IcingStage.NozzleWrapper(),
-            IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
+            #IcingStage.WrapperID.nozzle: IcingStage.NozzleWrapper(),
+            #IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
         }
 
-        self._recipe_timer = RepeatedTimer(0.05, self._check_recipe)
+        self._recipe_timer = RepeatedTimer(0.1, self._check_recipe)
         self._recipe_timer.stop()
 
     def start_recipe(self):
         self.logger.info('Starting recipe')
         self._recipe_timer.restart()
+        for actuator in self._wrappers.values():
+            actuator.unpause()
 
     def stop_recipe(self):
+        self.logger.info('Halting recipe progress immediately')
         self._recipe_timer.stop()
+        for actuator in self._wrappers.values():
+            actuator.pause()
 
     def _check_recipe(self):
         '''Frequently-called method that checks if another step of the recipe
@@ -155,7 +230,11 @@ class IcingStage(Stage):
 
         with open(filename, 'r') as icingspec:
             for line in icingspec:
-                coms.append(literal_eval(line))
+                coms.append(
+                    {IcingStage.WrapperID(idx): com
+                     for idx, com in literal_eval(line).items()
+                     }
+                )
 
         return coms
 
