@@ -5,10 +5,9 @@ Created on Jan 18, 2016
 '''
 import enum
 import logging
-import atexit
 from uuid import uuid1
 from cookiebot.multithreading import RepeatedTimer
-from __builtin__ import False
+import time
 
 onPI = False
 
@@ -242,12 +241,12 @@ class StepperActuator(Actuator):
     def go_to_zero(self, pin_to_listen):
 
         # do stuff here - how does GPIO work?
-        
-        GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        
-        while GPIO.input(pin_to_listen) == GPIO.LOW:
-            time.sleep(0.02)
-            self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
+        if onPI:
+            GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            
+            while GPIO.input(pin_to_listen) == GPIO.LOW:
+                time.sleep(0.02)
+                self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
 
         self.step_pos = 0
         

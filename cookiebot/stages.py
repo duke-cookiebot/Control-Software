@@ -10,6 +10,7 @@ import logging
 from ast import literal_eval
 import array
 import time
+import sys
 
 
 class Stage(object):
@@ -191,11 +192,13 @@ class IcingStage(Stage):
             act = self._wrapped_actuators['nozzle']
 
             if not bool_command:
-                self.logger.debug('Sending an empty task to turn off the nozzle')
+                self.logger.debug(
+                    'Sending an empty task to turn off the nozzle')
                 act.set_task([])
             else:
                 ticks_to_go = act.max_steps - act.step_pos
-                self.logger.debug('Sending {0} forward steps to keep the nozzle running until 1. it runs out or 2. the task is changed'.format(ticks_to_go))
+                self.logger.debug(
+                    'Sending {0} forward steps to keep the nozzle running until 1. it runs out or 2. the task is changed'.format(ticks_to_go))
 
                 act.set_task(
                     array.array('b', [1 for _ in xrange(ticks_to_go)]))
@@ -323,6 +326,8 @@ class IcingStage(Stage):
         return True
 
     def load_recipe(self, recipe):
+        self.logger.info('Begining recipe load')
+        
         parsed = []
 
         # every recipe starts by raising the platform, stopping the nozzle and
@@ -345,6 +350,8 @@ class IcingStage(Stage):
                        IcingStage.WrapperID.nozzle: False,
                        IcingStage.WrapperID.platform: False
                        })
+
+        self.logger.info('Loaded a recipe with {0} steps'.format(len(parsed)))
 
         self.steps = parsed[:]
 
@@ -416,7 +423,10 @@ class IcingStage(Stage):
 def main():
     from cookiebot.recipe import Recipe, RecipeError
 
-    logging.basicConfig(level=logging.DEBUG)
+    displayformat = '%(levelname)s: %(asctime)s from %(name)s in %(funcName)s: %(message)s'
+
+    logging.basicConfig(
+        level=logging.DEBUG, format=displayformat, stream=sys.stdout)
 
     r = Recipe()
     r.add_cookie({'icing': Recipe.IcingType.square}, (0, 0))
