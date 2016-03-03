@@ -25,7 +25,7 @@ class Recipe(object):
     @enum.unique
     class IcingType(enum.Enum):
         square = '../data/icing_patterns/square.txt'
-        duke_d = '../data/icing_patterns/duke_d.txt'
+        duke_d = '../data/icing_patterns/duke_d12.txt'
 
     def __init__(self):
         self.cookies = {}
