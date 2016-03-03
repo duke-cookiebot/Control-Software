@@ -102,4 +102,3 @@
 {0: (-0.417, 0.583)} #6th complete
 {0: (-0.417, 0.667)} #move up
 {2: False} #Turn the nozzle off DONE FUCK YEAH
-
