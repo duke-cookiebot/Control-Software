@@ -1,0 +1,104 @@
+{0: (-0.583, 1), 2: False} #Move to the top left corner with the nozzle off
+{0: (0.750, 1), 2: True} #Turn the nozzle on and move right; 1st row complete
+{0: (0.750, 0.917)} #Move down to second row
+{0: (0.333, 0.917)} #Move left
+{2: False} #Turn the nozzle off
+{0: (0.167, 0.917)} #Move to next start point with nozzle off
+{0: (-0.583, 0.917), 2: True} #Turn nozzle on and move left; 2nd row complete
+{2: False} #Turn the nozzle off 
+{0: (-0.5, 0.833)} #Move to start of 3rd row with nozzle off
+{0: (0.083, 0.833), 2: True} #Turn on nozzle, dispense right
+{2: False} #Turn the nozzle off 
+{0: (0.417, 0.833)} #Move to next start spot
+{0: (0.833, 0.833), 2: True} #Turn nozzle on, move to right; 3rd row complete
+{0: (0.833, 0.750)} #Move down to 4th row
+{0: (0.417, 0.750)} #Move left
+{2: False} #Turn the nozzle off 
+{0: (0.083, 0.750)} #Move to start position
+{0: (-0.5, 0.750), 2: True} #Turn nozzle on, move left; 4th row complete
+{2: False} #Turn the nozzle off 
+{0: (-0.417, 0.667)} #Move to start position 5th row
+{0: (0, 0.667), 2: True} #Turn nozzle on, move right
+{2: False} #Turn the nozzle off 
+{0: (0.5, 0.667)} #Move to next start position 5th row
+{0: (0.917, 0.667), 2: True)} #Turn nozzle on, move right; 5th row complete
+{0: (0.917, 0.583)} #Move one down
+{0: (0.5, 0.583)} #6th row right complete
+{0: (0.5, 0.5)} #Move one down
+{0: (0.917, 0.5)} #7th row right complete
+{0: (0.917, 0.417)} #Move one down
+{0: (0.5, 0.417)} #8th row right complete
+{0: (0.5, 0.333)} #Move one down
+{0: (0.917, 0.333)} #9th row right complete
+{0: (0.917, 0.250)} #Move one down
+{0: (0.5, 0.250)} #10th row right complete
+{0: (0.5, 0.167)} #Move one down
+{0: (0.917, 0.167)} #11th row right complete
+{0: (0.917, 0.083)} #Move one down
+{0: (0.5, 0.083)} #12th row right complete
+{0: (0.5, 0)} #Move one down
+{0: (0.917, 0)} #13th right complete
+{0: (0.917, -0.083)} #Move one down
+{0: (0.5, -0.083)} #14th right complete
+{0: (0.5, -0.167)} #Move down
+{0: (0.917, -0.167)} #15th right complete
+{0: (0.917, -0.25)} #Move down
+{0: (0.5, -0.25)} #16th right complete
+{0: (0.5, -0.333)} #Move down
+{0: (0.917, -0.333)} #17th right complete
+{0: (0.917, -0.417)} #Move down
+{0: (0.5, -0.417)} #18th right complete
+{0: (0.5, -0.5)} #Move down
+{0: (0.917, -0.5)} #19th right complete
+{0: (0.917, -0.583)} #Move down
+{0: (0.5, -0.583)} #20th right complete
+{2: False} #Turn the nozzle off 
+{0: (0.417, -0.667)} #Move to new start point
+{0: (0.833, -0.667), 2: True} #Turn on nozzle, move right; 21st right complete
+{0: (0.833, -0.75)} #Move down
+{0: (0.417, -0.75)} #Move left; 22nd right complete
+{2: False} #Turn the nozzle off 
+{0: (0.333, -0.833)} #Move to new start point
+{0: (0.75, -0.833), 2: True} #Turn nozzle on, move right; 23rd right complete
+{0: (0.75, -0.917)} #Move down
+{0: (-0.583, -0.917)} #Move left; bottom most row 24 complete
+{0: (-0.583, -0.833)} #Move up one
+{0: (0.167, -0.833)} #Move right; 23rd left complete
+{2: False} #Turn the nozzle off 
+{0: (0.083, -0.75)} #Move to next start point
+{0: (-0.5, -0.75), 2: True} #Turn nozzle on, move left; 22nd left complete
+{0: (-0.5, -0.667)} #Move up one
+{0: (0.083, -0.667)} #Move right; 21st left complete
+{2: False} #Turn the nozzle off 
+{0: (0, -0.583)} #Move to next start position
+{0: (-0.417, -0.583), 2: True} #20th left complete
+{0: (-0.417, -0.5)} #Move up
+{0: (0, -0.5)} #19th left complete
+{0: (0, -0.417)} #Move up
+{0: (-0.417, -0.417)} #18th left complete
+{0: (-0.417, -0.333)} #Move up
+{0: (0, -0.333)} #17th left complete
+{0: (0, -0.25)} #Move up
+{0: (-0.417, -0.25)} #16th left complete
+{0: (-0.417, -0.167)} #Move up
+{0: (0, -0.167)} #15th left complete
+{0: (0, -0.083)} #Move up
+{0: (-0.417, -0.083)} #14th left complete
+{0: (-0.417, 0)} #Move up
+{0: (0, 0)} #13th left complete
+{0: (0, 0.083)} #Move up
+{0: (-0.417, 0.083)} #12th complete
+{0: (-0.417, 0.167)} #Move up
+{0: (0, 0.167)} #11th complete
+{0: (0, 0.25)} #move up
+{0: (-0.417, 0.25)} #10th complete
+{0: (-0.417, 0.333)} #move up
+{0: (0, 0.333)} #9th complete
+{0: (0, 0.417)} #move up
+{0: (-0.417, 0.417)} #8th complete
+{0: (-0.417, 0.5)} #move up
+{0: (0, 0.5)} #7th complete
+{0: (0, 0.583)} #move up
+{0: (-0.417, 0.583)} #6th complete
+{0: (-0.417, 0.667)} #move up
+{2: False} #Turn the nozzle off DONE FUCK YEAH
