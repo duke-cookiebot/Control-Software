@@ -21,7 +21,7 @@
 {0: (0, 0.667), 2: True} #Turn nozzle on, move right
 {2: False} #Turn the nozzle off 
 {0: (0.5, 0.667)} #Move to next start position 5th row
-{0: (0.917, 0.667), 2: True)} #Turn nozzle on, move right; 5th row complete
+{0: (0.917, 0.667), 2: True} #Turn nozzle on, move right; 5th row complete
 {0: (0.917, 0.583)} #Move one down
 {0: (0.5, 0.583)} #6th row right complete
 {0: (0.5, 0.5)} #Move one down

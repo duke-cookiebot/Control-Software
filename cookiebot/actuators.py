@@ -8,8 +8,10 @@ import logging
 from uuid import uuid1
 from cookiebot.multithreading import RepeatedTimer
 import time
+import array
+import sys
 
-onPI = False
+onPI = True
 
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT
@@ -42,6 +44,7 @@ class Actuator(object):
         Prepares an actuator to receive commands, assigns its ID, and starts
         execution.
         '''
+        self.logger.debug('Create actuator {0} with interval {1}'.format(identity, run_interval))
         self.state = Actuator.State.ready
         self.identity = identity if identity else str(uuid1())
         self._task = None
@@ -274,7 +277,6 @@ class StepperActuator(Actuator):
 
     def _execute_task(self):
         step, self._task = self._task[0], self._task[1:]  # aka generalized pop
-
         self.step_pos += step
         if onPI:
             if step == -1:
@@ -344,25 +346,82 @@ class ExecutionError(Exception):
 
 
 def main():
-    ts1 = StepperActuator(
-        identity='test stepper 1',
-        run_interval=0.01,
-        dist_per_step=1.0,
-        max_dist=float('inf'),
-        addr=0x60,
-        steps_per_rev=200,
-        stepper_num=1,
-    )
+
+    displayformat = '%(levelname)s: %(asctime)s from %(name)s in %(funcName)s: %(message)s'
+
+    logging.basicConfig(
+        level=logging.DEBUG, format=displayformat, stream=sys.stdout)
+
     
-    ts2 = StepperActuator(
-        identity='test stepper 2',
-        run_interval=0.01,
-        dist_per_step=1.0,
-        max_dist=float('inf'),
-        addr=0x60,
-        steps_per_rev=200,
-        stepper_num=1,
-    )
+    x = StepperActuator(identity='Test X Actuator',
+                 peak_rpm=6,
+                 dist_per_step=0.0156,
+                 max_dist=16.0,
+                 addr=0x60,
+                 steps_per_rev=200,
+                 stepper_num=1)
+    y = StepperActuator(identity='Test Y Actuator',
+                 peak_rpm=6,
+                 dist_per_step=0.0156,
+                 max_dist=16.0,
+                 addr=0x60,
+                 steps_per_rev=200,
+                 stepper_num=2)
+    platform = StepperActuator(identity='Test Platform Actuator',
+                 peak_rpm=30,
+                 dist_per_step=0.00025,
+                 max_dist=3.0,
+                 addr=0x61,
+                 steps_per_rev=200,
+                 stepper_num=1)
+    nozzle = StepperActuator(identity='Test Nozzle Actuator',
+                 peak_rpm=3,
+                 dist_per_step=0.00025,
+                 max_dist=3.0,
+                 addr=0x61,
+                 steps_per_rev=200,
+                 stepper_num=2)
+
+    acts = [x, y, nozzle, platform]
+
+    for act in acts:
+        act.pause()
+
+    task_platform = [1 for _ in xrange(800)]
+    task_motor = [1 for _ in xrange(100)]
+
+    platform.set_task(task=array.array('b', task_platform),
+                 blocking=True)
+    y.set_task(task=array.array('b', task_motor),
+               blocking=True)
+    x.set_task(task=array.array('b', task_motor),
+               blocking=True)
+
+    nozzle.set_task(task=array.array('b', task_motor),
+                blocking=False)
+
+    readystates = (Actuator.State.ready, Actuator.State.dead)
+    platform.unpause()
+    while True:
+        print 'Executing platform task'
+        time.sleep(1)
+        if platform.state in readystates:
+            break
+
+    for act in acts:
+        act.unpause()
+        
+    readystates = (Actuator.State.ready, Actuator.State.dead)
+    while True:
+        print 'Executing task'
+        time.sleep(1)
+        if all([act.state in readystates for act in acts]):
+            break
+            
+
+    print 'Done with execution'
+    for act in acts:
+        act.kill()
 
 
 if __name__ == "__main__":

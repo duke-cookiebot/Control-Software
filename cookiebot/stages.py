@@ -10,7 +10,11 @@ import logging
 from ast import literal_eval
 import array
 import time
+import os
 import sys
+
+MAIN_DIR = '/home/pi/Control-Software/'
+DATA_DIR = os.path.join(MAIN_DIR, 'data')
 
 
 class Stage(object):
@@ -52,7 +56,7 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                peak_rpm=10,
+                peak_rpm=9,
                 dist_per_step=0.0156,
                 max_dist=16.0,
                 addr=0x60,
@@ -64,7 +68,7 @@ class IcingStage(Stage):
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                peak_rpm=10,
+                peak_rpm=9,
                 dist_per_step=0.0156,
                 max_dist=16.0,
                 addr=0x60,
@@ -85,7 +89,7 @@ class IcingStage(Stage):
             step_delta = (
                 int(deltas[0] / xmotor.step_size), int(deltas[1] / ymotor.step_size))
 
-            self.logger.debug(
+            self.logger.info(
                 'Need to move {0} steps from {1} to {2}'.format(step_delta, pos, dest))
 
             step_points = self.bresenham((0, 0), step_delta)
@@ -100,8 +104,8 @@ class IcingStage(Stage):
                 ysteps.append(cmp(p[1], last_p[1]))
                 last_p = p
 
-            self.logger.debug('Xsteps: {0}'.format(xsteps))
-            self.logger.debug('Ysteps: {0}'.format(ysteps))
+            #self.logger.debug('Xsteps: {0}'.format(xsteps))
+            #self.logger.debug('Ysteps: {0}'.format(ysteps))
 
             xmotor.set_task(
                 task=array.array('b', xsteps),
@@ -180,7 +184,7 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                peak_rpm=10,
+                peak_rpm=3,
                 dist_per_step=0.00025,
                 max_dist=3.0,
                 addr=0x61,
@@ -192,13 +196,13 @@ class IcingStage(Stage):
             act = self._wrapped_actuators['nozzle']
 
             if not bool_command:
-                self.logger.debug(
+                self.logger.info(
                     'Sending an empty task to turn off the nozzle')
                 act.set_task([])
             else:
                 ticks_to_go = act.max_steps - act.step_pos
-                self.logger.debug(
-                    'Sending {0} forward steps to keep the nozzle running until 1. it runs out or 2. the task is changed'.format(ticks_to_go))
+                self.logger.info(
+                    'Sending {0} forward steps to keep the nozzle running until 1) it runs out or 2) the task is changed'.format(ticks_to_go))
 
                 act.set_task(
                     array.array('b', [1 for _ in xrange(ticks_to_go)]))
@@ -215,14 +219,14 @@ class IcingStage(Stage):
             # also the value of go_to_zero
             self._wrapped_actuators['platform'] = StepperActuator(
                 identity='Platform Stepper',
-                peak_rpm=20,
+                peak_rpm=30,
                 dist_per_step=0.00025,
-                max_dist=6.0,
+                max_dist=1.0,
                 addr=0x61,
                 steps_per_rev=200,
                 stepper_num=2,
             )
-            self._wrapped_actuators['platform'].go_to_zero(2)
+            #self._wrapped_actuators['platform'].go_to_zero(2)
 
         def send(self, bool_command):
             act = self._wrapped_actuators['platform']
@@ -232,15 +236,15 @@ class IcingStage(Stage):
                 act.set_task(
                     task=array.array('b', [1 for _ in xrange(ticks_to_go)]),
                     blocking=True)
-                self.logger.debug(
-                    'Sending {0} forward steps'.format(ticks_to_go))
+                self.logger.info(
+                    'Sending {0} raising steps'.format(ticks_to_go))
             else:
                 ticks_to_go = act.step_pos
                 act.set_task(
                     task=array.array('b', [-1 for _ in xrange(ticks_to_go)]),
                     blocking=True)
-                self.logger.debug(
-                    'Sending {0} backwards steps'.format(ticks_to_go))
+                self.logger.info(
+                    'Sending {0} lowering steps'.format(ticks_to_go))
 
     logger = logging.getLogger('cookiebot.Stage.IcingStage')
 
@@ -335,7 +339,7 @@ class IcingStage(Stage):
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
-                       IcingStage.WrapperID.platform: True
+                       #IcingStage.WrapperID.platform: True
                        })
 
         for cookie_pos, cookie_spec in recipe.cookies.iteritems():
@@ -348,7 +352,7 @@ class IcingStage(Stage):
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
-                       IcingStage.WrapperID.platform: False
+                       #IcingStage.WrapperID.platform: False
                        })
 
         self.logger.info('Loaded a recipe with {0} steps'.format(len(parsed)))
@@ -377,7 +381,7 @@ class IcingStage(Stage):
         '''
         coms = []
 
-        with open(filename, 'r') as icingspec:
+        with open(os.path.join(DATA_DIR,filename), 'r') as icingspec:
             for line in icingspec:
                 coms.append(
                     {IcingStage.WrapperID(idx): com
@@ -426,10 +430,10 @@ def main():
     displayformat = '%(levelname)s: %(asctime)s from %(name)s in %(funcName)s: %(message)s'
 
     logging.basicConfig(
-        level=logging.DEBUG, format=displayformat, stream=sys.stdout)
+        level=logging.INFO, format=displayformat, stream=sys.stdout)
 
     r = Recipe()
-    r.add_cookie({'icing': Recipe.IcingType.square}, (0, 0))
+    r.add_cookie({'icing': Recipe.IcingType.duke_d}, (0, 0))
 
     stage = IcingStage()
     try:
@@ -442,7 +446,7 @@ def main():
     stage.start_recipe()
 
     while not stage.recipe_done() and stage.live:
-        time.sleep(0.1)
+        time.sleep(0.5)
 
     if not stage.live:
         print 'Stage finished with an error'
