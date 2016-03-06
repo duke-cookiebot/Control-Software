@@ -12,6 +12,7 @@ import array
 import time
 import os
 import sys
+import atexit
 
 MAIN_DIR = '/home/pi/Control-Software/'
 DATA_DIR = os.path.join(MAIN_DIR, 'data')
@@ -190,6 +191,7 @@ class IcingStage(Stage):
                 addr=0x61,
                 steps_per_rev=200,
                 stepper_num=1,
+                reversed=True
             )
 
         def send(self, bool_command):
@@ -268,7 +270,9 @@ class IcingStage(Stage):
         }
 
         self._recipe_timer = RepeatedTimer(
-            0.25, self._check_recipe, start=False)
+            0.1, self._check_recipe, start=False)
+
+        
 
     def start_recipe(self):
         self.logger.info('Starting recipe')
@@ -433,7 +437,7 @@ def main():
         level=logging.INFO, format=displayformat, stream=sys.stdout)
 
     r = Recipe()
-    r.add_cookie({'icing': Recipe.IcingType.duke_d}, (0, 0))
+    r.add_cookie({'icing': Recipe.IcingType.duke_outline}, (0, 0))
 
     stage = IcingStage()
     try:

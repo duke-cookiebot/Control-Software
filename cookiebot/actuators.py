@@ -216,7 +216,8 @@ class StepperActuator(Actuator):
                  addr=0x60,
                  steps_per_rev=200,
                  stepper_num=1,
-                 step_type=StepType.single):
+                 step_type=StepType.single,
+                 reversed=False):
         '''
         Constructor
 
@@ -237,10 +238,18 @@ class StepperActuator(Actuator):
         if onPI:
             self.hat = Adafruit_MotorHAT(addr=addr)
             self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
+            self.motors = [1, 2] if stepper_num == 1 else [3, 4]
 
         self.step_pos = 0
         self.step_size = dist_per_step
         self.max_steps = int(max_dist / self.step_size)
+
+        if reversed:
+            self.forward = Adafruit_MotorHAT.BACKWARD
+            self.backward = Adafruit_MotorHAT.FORWARD
+        else:
+            self.forward = Adafruit_MotorHAT.FORWARD
+            self.backward = Adafruit_MotorHAT.BACKWARD
 
     def go_to_zero(self, pin_to_listen):
 
@@ -253,6 +262,12 @@ class StepperActuator(Actuator):
                 self.stepper.oneStep(Adafruit_MotorHAT.BACKWARD, self.step_style.value)
 
         self.step_pos = 0
+
+    def kill(self):
+        super(StepperActuator, self).kill()
+
+        for m in self.motors:
+            self.hat.getMotor(m).run(Adafruit_MotorHAT.RELEASE)
         
 
     @property
@@ -281,10 +296,10 @@ class StepperActuator(Actuator):
         if onPI:
             if step == -1:
                 # step back oneStep
-                self.stepper.oneStep(Adafruit_MotorHAT.BACKWARD, self.step_style.value)
+                self.stepper.oneStep(self.backward, self.step_style.value)
             elif step == 1:
                 # step forward oneStep
-                self.stepper.oneStep(Adafruit_MotorHAT.FORWARD, self.step_style.value)
+                self.stepper.oneStep(self.forward, self.step_style.value)
 
 
 class ActuatorWrapper(object):
