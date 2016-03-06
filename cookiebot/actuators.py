@@ -13,7 +13,6 @@ onPI = False
 
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT
-    MotorHat = Adafruit_MotorHAT.Adafruit_MotorHAT
     import RPi.GPIO as GPIO
     GPIO.setmode(GPIO.BOARD)
 
@@ -194,10 +193,10 @@ class StepperActuator(Actuator):
     '''
     class StepType(enum.IntEnum):
         if onPI:
-            single = MotorHat.SINGLE
-            double = MotorHat.DOUBLE
-            micro = MotorHat.MICROSTEP
-            interleave = MotorHat.INTERLEAVE
+            single = Adafruit_MotorHAT.SINGLE
+            double = Adafruit_MotorHAT.DOUBLE
+            micro = Adafruit_MotorHAT.MICROSTEP
+            interleave = Adafruit_MotorHAT.INTERLEAVE
         else:
             single = 0
             double = 1
@@ -208,13 +207,13 @@ class StepperActuator(Actuator):
 
     def __init__(self,
                  identity='',
-                 run_interval=0.1,
+                 peak_rpm=30,
                  dist_per_step=1.0,
                  max_dist=float('inf'),
                  addr=0x60,
                  steps_per_rev=200,
                  stepper_num=1,
-                 step_type=StepType.micro):
+                 step_type=StepType.single):
         '''
         Constructor
 
@@ -226,12 +225,14 @@ class StepperActuator(Actuator):
         '''
 
         # superclass constructor
+        run_interval = 1.0 / (peak_rpm * 200.0 / 60.0)
+        
         super(StepperActuator, self).__init__(
             identity=identity, run_interval=run_interval)
 
         self.step_style = step_type
         if onPI:
-            self.hat = MotorHat(addr=addr)
+            self.hat = Adafruit_MotorHAT(addr=addr)
             self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
 
         self.step_pos = 0
@@ -246,7 +247,7 @@ class StepperActuator(Actuator):
             
             while GPIO.input(pin_to_listen) == GPIO.LOW:
                 time.sleep(0.02)
-                self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
+                self.stepper.oneStep(Adafruit_MotorHAT.BACKWARD, self.step_style.value)
 
         self.step_pos = 0
         
@@ -278,10 +279,10 @@ class StepperActuator(Actuator):
         if onPI:
             if step == -1:
                 # step back oneStep
-                self.stepper.oneStep(MotorHat.BACKWARD, self.step_style.value)
+                self.stepper.oneStep(Adafruit_MotorHAT.BACKWARD, self.step_style.value)
             elif step == 1:
                 # step forward oneStep
-                self.stepper.oneStep(MotorHat.FORWARD, self.step_style.value)
+                self.stepper.oneStep(Adafruit_MotorHAT.FORWARD, self.step_style.value)
 
 
 class ActuatorWrapper(object):

@@ -52,27 +52,27 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                run_interval=0.005,
-                dist_per_step=0.01,
+                peak_rpm=10,
+                dist_per_step=0.0156,
                 max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=1,
             )
 
-            self._wrapped_actuators['xmotor'].go_to_zero(0)
+            #self._wrapped_actuators['xmotor'].go_to_zero(0)
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                run_interval=0.005,
-                dist_per_step=0.02,
+                peak_rpm=10,
+                dist_per_step=0.0156,
                 max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
-                stepper_num=1,
+                stepper_num=2,
             )
 
-            self._wrapped_actuators['xmotor'].go_to_zero(1)
+            #self._wrapped_actuators['ymotor'].go_to_zero(1)
 
         def send(self, dest):
             xmotor = self._wrapped_actuators['xmotor']
@@ -180,10 +180,10 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                run_interval=0.5,
-                dist_per_step=0.001,
+                peak_rpm=10,
+                dist_per_step=0.00025,
                 max_dist=3.0,
-                addr=0x60,
+                addr=0x61,
                 steps_per_rev=200,
                 stepper_num=1,
             )
@@ -215,12 +215,12 @@ class IcingStage(Stage):
             # also the value of go_to_zero
             self._wrapped_actuators['platform'] = StepperActuator(
                 identity='Platform Stepper',
-                run_interval=0.01,
-                dist_per_step=0.05,
+                peak_rpm=20,
+                dist_per_step=0.00025,
                 max_dist=6.0,
-                addr=0x60,
+                addr=0x61,
                 steps_per_rev=200,
-                stepper_num=1,
+                stepper_num=2,
             )
             self._wrapped_actuators['platform'].go_to_zero(2)
 
