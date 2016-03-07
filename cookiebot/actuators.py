@@ -255,9 +255,9 @@ class StepperActuator(Actuator):
 
         # do stuff here - how does GPIO work?
         if onPI:
-            GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             
-            while GPIO.input(pin_to_listen) == GPIO.LOW:
+            while GPIO.input(pin_to_listen) == GPIO.HIGH:
                 time.sleep(0.02)
                 self.stepper.oneStep(Adafruit_MotorHAT.BACKWARD, self.step_style.value)
 

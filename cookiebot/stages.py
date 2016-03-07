@@ -200,14 +200,17 @@ class IcingStage(Stage):
             if not bool_command:
                 self.logger.info(
                     'Sending an empty task to turn off the nozzle')
-                act.set_task([])
+                act.set_task(
+                    task=array.array('b', [-1 for _ in xrange(-5)]),
+                    blocking=False)
             else:
                 ticks_to_go = act.max_steps - act.step_pos
                 self.logger.info(
                     'Sending {0} forward steps to keep the nozzle running until 1) it runs out or 2) the task is changed'.format(ticks_to_go))
 
                 act.set_task(
-                    array.array('b', [1 for _ in xrange(ticks_to_go)]))
+                    task=array.array('b', [1 for _ in xrange(ticks_to_go)]),
+                    blocking=False)
 
     class PlatformWrapper(ActuatorWrapper):
 
@@ -343,7 +346,7 @@ class IcingStage(Stage):
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
-                       #IcingStage.WrapperID.platform: True
+                       IcingStage.WrapperID.platform: True
                        })
 
         for cookie_pos, cookie_spec in recipe.cookies.iteritems():
@@ -356,7 +359,7 @@ class IcingStage(Stage):
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
-                       #IcingStage.WrapperID.platform: False
+                       IcingStage.WrapperID.platform: False
                        })
 
         self.logger.info('Loaded a recipe with {0} steps'.format(len(parsed)))
@@ -384,7 +387,7 @@ class IcingStage(Stage):
         Assigned to Cynthia
         '''
         coms = []
-
+        
         with open(os.path.join(DATA_DIR,filename), 'r') as icingspec:
             for line in icingspec:
                 coms.append(
@@ -442,8 +445,9 @@ def main():
     stage = IcingStage()
     try:
         stage.load_recipe(r)
-    except RecipeError:
-        print 'Something is wrong with that recipe file!'
+    except RecipeError, IOError:
+        print 'Something is wrong with that recipe file! Shutting down.'
+        stage.shutdown()
         return
 
     starttime = time.time()
