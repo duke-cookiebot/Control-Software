@@ -65,7 +65,7 @@ class IcingStage(Stage):
                 stepper_num=1,
             )
 
-            #self._wrapped_actuators['xmotor'].go_to_zero(0)
+            # self._wrapped_actuators['xmotor'].go_to_zero(0)
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
@@ -77,7 +77,7 @@ class IcingStage(Stage):
                 stepper_num=2,
             )
 
-            #self._wrapped_actuators['ymotor'].go_to_zero(1)
+            # self._wrapped_actuators['ymotor'].go_to_zero(1)
 
         def send(self, dest):
             xmotor = self._wrapped_actuators['xmotor']
@@ -231,7 +231,7 @@ class IcingStage(Stage):
                 steps_per_rev=200,
                 stepper_num=2,
             )
-            #self._wrapped_actuators['platform'].go_to_zero(2)
+            # self._wrapped_actuators['platform'].go_to_zero(2)
 
         def send(self, bool_command):
             act = self._wrapped_actuators['platform']
@@ -274,8 +274,6 @@ class IcingStage(Stage):
 
         self._recipe_timer = RepeatedTimer(
             0.1, self._check_recipe, start=False)
-
-        
 
     def start_recipe(self):
         self.logger.info('Starting recipe')
@@ -338,7 +336,7 @@ class IcingStage(Stage):
 
     def load_recipe(self, recipe):
         self.logger.info('Begining recipe load')
-        
+
         parsed = []
 
         # every recipe starts by raising the platform, stopping the nozzle and
@@ -387,8 +385,8 @@ class IcingStage(Stage):
         Assigned to Cynthia
         '''
         coms = []
-        
-        with open(os.path.join(DATA_DIR,filename), 'r') as icingspec:
+
+        with open(os.path.join(DATA_DIR, filename), 'r') as icingspec:
             for line in icingspec:
                 coms.append(
                     {IcingStage.WrapperID(idx): com

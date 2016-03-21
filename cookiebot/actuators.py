@@ -10,8 +10,10 @@ from cookiebot.multithreading import RepeatedTimer
 import time
 import array
 import sys
+import argparse
 
-onPI = True
+
+onPI = False
 
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT
@@ -44,7 +46,8 @@ class Actuator(object):
         Prepares an actuator to receive commands, assigns its ID, and starts
         execution.
         '''
-        self.logger.debug('Create actuator {0} with interval {1}'.format(identity, run_interval))
+        self.logger.debug(
+            'Create actuator {0} with interval {1}'.format(identity, run_interval))
         self.state = Actuator.State.ready
         self.identity = identity if identity else str(uuid1())
         self._task = None
@@ -230,7 +233,7 @@ class StepperActuator(Actuator):
 
         # superclass constructor
         run_interval = 1.0 / (peak_rpm * 200.0 / 60.0)
-        
+
         super(StepperActuator, self).__init__(
             identity=identity, run_interval=run_interval)
 
@@ -239,27 +242,33 @@ class StepperActuator(Actuator):
             self.hat = Adafruit_MotorHAT(addr=addr)
             self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
             self.motors = [1, 2] if stepper_num == 1 else [3, 4]
+        else:
+            self.hat = None
+            self.stepper = None
+            self.motors = []
 
         self.step_pos = 0
         self.step_size = dist_per_step
         self.max_steps = int(max_dist / self.step_size)
 
-        if reversed:
-            self.forward = Adafruit_MotorHAT.BACKWARD
-            self.backward = Adafruit_MotorHAT.FORWARD
-        else:
-            self.forward = Adafruit_MotorHAT.FORWARD
-            self.backward = Adafruit_MotorHAT.BACKWARD
+        if onPI:
+            if reversed:
+                self.forward = Adafruit_MotorHAT.BACKWARD
+                self.backward = Adafruit_MotorHAT.FORWARD
+            else:
+                self.forward = Adafruit_MotorHAT.FORWARD
+                self.backward = Adafruit_MotorHAT.BACKWARD
 
     def go_to_zero(self, pin_to_listen):
 
         # do stuff here - how does GPIO work?
         if onPI:
             GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            
+
             while GPIO.input(pin_to_listen) == GPIO.HIGH:
                 time.sleep(0.02)
-                self.stepper.oneStep(Adafruit_MotorHAT.BACKWARD, self.step_style.value)
+                self.stepper.oneStep(
+                    Adafruit_MotorHAT.BACKWARD, self.step_style.value)
 
         self.step_pos = 0
 
@@ -268,7 +277,6 @@ class StepperActuator(Actuator):
 
         for m in self.motors:
             self.hat.getMotor(m).run(Adafruit_MotorHAT.RELEASE)
-        
 
     @property
     def real_pos(self):
@@ -360,84 +368,81 @@ class ExecutionError(Exception):
         return repr(self.value)
 
 
-def main():
+def opts():
+    parser = argparse.ArgumentParser(
+        description='Test actuator control',
+        add_help=True, prog='cookiebot_actuators')
 
+    parser.add_argument(
+        'motors', nargs='+', type=int,
+        help='Turn on motors - type one of more of (1, 2, 3, 4) to use the stepper at that port')
+
+    parser.add_argument(
+        '--rpm', type=float, default=10,
+        help='Define the rotation speed of all motors being simulated (should be on (0, 30])')
+
+    parser.add_argument(
+        '--steps', type=int, default=200,
+        help='Set the number of steps the motors should move; 200/rot, negative numbers go backwards')
+
+    return parser
+
+
+def main():
     displayformat = '%(levelname)s: %(asctime)s from %(name)s in %(funcName)s: %(message)s'
 
     logging.basicConfig(
         level=logging.DEBUG, format=displayformat, stream=sys.stdout)
 
-    
-    x = StepperActuator(identity='Test X Actuator',
-                 peak_rpm=6,
-                 dist_per_step=0.0156,
-                 max_dist=16.0,
-                 addr=0x60,
-                 steps_per_rev=200,
-                 stepper_num=1)
-    y = StepperActuator(identity='Test Y Actuator',
-                 peak_rpm=6,
-                 dist_per_step=0.0156,
-                 max_dist=16.0,
-                 addr=0x60,
-                 steps_per_rev=200,
-                 stepper_num=2)
-    platform = StepperActuator(identity='Test Platform Actuator',
-                 peak_rpm=30,
-                 dist_per_step=0.00025,
-                 max_dist=3.0,
-                 addr=0x61,
-                 steps_per_rev=200,
-                 stepper_num=1)
-    nozzle = StepperActuator(identity='Test Nozzle Actuator',
-                 peak_rpm=3,
-                 dist_per_step=0.00025,
-                 max_dist=3.0,
-                 addr=0x61,
-                 steps_per_rev=200,
-                 stepper_num=2)
+    args = opts().parse_args()
 
-    acts = [x, y, nozzle, platform]
+    if args.rpm < 0:
+        logging.error('Invalid rpm value {0}, terminating'.format(args.rpm))
+        return
 
-    for act in acts:
+    actuators = []
+    for s in args.motors:
+        pass
+        if s < 1 or s > 4:
+            logging.error('Invalid motor number {0}, terminating'.format(s))
+            return
+        else:
+            addr = 0x60 if s in (1, 2) else 0x61
+            motornum = s if s in (1, 2) else s - 2
+
+            act = StepperActuator(identity='',
+                                  peak_rpm=args.rpm,
+                                  dist_per_step=0.0156,
+                                  max_dist=1000,
+                                  addr=addr,
+                                  steps_per_rev=200,
+                                  stepper_num=motornum,
+                                  step_type=StepperActuator.StepType.single,
+                                  reversed=False)
+
+            act.step_pos = 10000
+
+            actuators.append(act)
+
+    if args.steps < 0:
+        steps = array.array('b', [-1 for _ in xrange(abs(args.steps))])
+    else:
+        steps = array.array('b', [1 for _ in xrange(args.steps)])
+
+    for act in actuators:
         act.pause()
+        act.set_task(steps, blocking=True)
 
-    task_platform = [1 for _ in xrange(800)]
-    task_motor = [1 for _ in xrange(100)]
-
-    platform.set_task(task=array.array('b', task_platform),
-                 blocking=True)
-    y.set_task(task=array.array('b', task_motor),
-               blocking=True)
-    x.set_task(task=array.array('b', task_motor),
-               blocking=True)
-
-    nozzle.set_task(task=array.array('b', task_motor),
-                blocking=False)
-
-    readystates = (Actuator.State.ready, Actuator.State.dead)
-    platform.unpause()
-    while True:
-        print 'Executing platform task'
-        time.sleep(1)
-        if platform.state in readystates:
-            break
-
-    for act in acts:
+    for act in actuators:
         act.unpause()
-        
-    readystates = (Actuator.State.ready, Actuator.State.dead)
-    while True:
-        print 'Executing task'
+
+    while not all([act._task_is_complete() for act in actuators]):
         time.sleep(1)
-        if all([act.state in readystates for act in acts]):
-            break
-            
+        logging.info('Executing tasks')
 
-    print 'Done with execution'
-    for act in acts:
-        act.kill()
+    list(act.kill() for act in actuators)
 
+    logging.info('Program execution finished')
 
 if __name__ == "__main__":
     main()
