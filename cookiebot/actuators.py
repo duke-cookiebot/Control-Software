@@ -13,7 +13,7 @@ import sys
 import argparse
 
 
-onPI = False
+onPI = True
 
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT
@@ -215,7 +215,7 @@ class StepperActuator(Actuator):
                  identity='',
                  peak_rpm=30,
                  dist_per_step=1.0,
-                 max_dist=float('inf'),
+                 max_dist=1000000000,
                  addr=0x60,
                  steps_per_rev=200,
                  stepper_num=1,
@@ -266,24 +266,25 @@ class StepperActuator(Actuator):
             GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
             while GPIO.input(pin_to_listen) == GPIO.HIGH:
-                time.sleep(0.02)
+                time.sleep(0.01)
                 self.stepper.oneStep(
-                    Adafruit_MotorHAT.BACKWARD, self.step_style.value)
+                    self.backward, self.step_style.value)
 
         self.step_pos = 0
 
     def kill(self):
         super(StepperActuator, self).kill()
-
-        for m in self.motors:
-            self.hat.getMotor(m).run(Adafruit_MotorHAT.RELEASE)
+        if onPI:
+            for m in self.motors:
+                self.hat.getMotor(m).run(Adafruit_MotorHAT.RELEASE)
 
     @property
     def real_pos(self):
         return self.step_pos * self.step_size
 
     def _check_bounds(self):
-        return (self.step_pos >= 0 and self.step_pos <= self.max_steps)
+        """TBD"""
+        return True
 
     def _validate_task(self, task):
         '''Check that task is an iterable containing only -1, 0 or 1'''
@@ -368,6 +369,10 @@ class ExecutionError(Exception):
         return repr(self.value)
 
 
+def parseint(x):
+    return int(x, 0)
+
+
 def opts():
     parser = argparse.ArgumentParser(
         description='Test actuator control',
@@ -375,7 +380,7 @@ def opts():
 
     parser.add_argument(
         'motors', nargs='+', type=int,
-        help='Turn on motors - type one of more of (1, 2, 3, 4) to use the stepper at that port')
+        help='Turn on motors - type one of more of (1, 2) to use the stepper at that port')
 
     parser.add_argument(
         '--rpm', type=float, default=10,
@@ -384,6 +389,10 @@ def opts():
     parser.add_argument(
         '--steps', type=int, default=200,
         help='Set the number of steps the motors should move; 200/rot, negative numbers go backwards')
+
+    parser.add_argument(
+        '--addr', type=parseint, default=0x60,
+        help='Chooose the motor hat address to use')
 
     return parser
 
@@ -401,23 +410,21 @@ def main():
         return
 
     actuators = []
-    for s in args.motors:
+    for motornum in args.motors:
         pass
-        if s < 1 or s > 4:
-            logging.error('Invalid motor number {0}, terminating'.format(s))
+        if motornum < 1 or motornum > 2:
+            logging.error(
+                'Invalid motor number {0}, terminating'.format(motornum))
             return
         else:
-            addr = 0x60 if s in (1, 2) else 0x61
-            motornum = s if s in (1, 2) else s - 2
-
             act = StepperActuator(identity='',
                                   peak_rpm=args.rpm,
                                   dist_per_step=0.0156,
-                                  max_dist=1000,
-                                  addr=addr,
+                                  max_dist=10000,
+                                  addr=args.addr,
                                   steps_per_rev=200,
                                   stepper_num=motornum,
-                                  step_type=StepperActuator.StepType.single,
+                                  step_type=StepperActuator.StepType.double,
                                   reversed=False)
 
             act.step_pos = 10000

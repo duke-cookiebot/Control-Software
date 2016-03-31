@@ -12,9 +12,10 @@ import array
 import time
 import os
 import sys
-import atexit
+import argparse
+from collections import defaultdict
 
-MAIN_DIR = '/home/pi/Control-Software/'
+MAIN_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_DIR = os.path.join(MAIN_DIR, 'data')
 
 
@@ -42,10 +43,10 @@ class IcingStage(Stage):
     classdocs
     '''
     @enum.unique
-    class WrapperID(enum.IntEnum):
-        carriage = 0  # blocking
-        platform = 1  # blocking
-        nozzle = 2  # non-blocking
+    class WrapperID(enum):
+        carriage = 1  # blocking
+        platform = 2  # blocking
+        nozzle = 3  # non-blocking
 
     class CarriageWrapper(ActuatorWrapper):
         logger = logging.getLogger('cookiebot.ActuatorWrapper.CarriageWrapper')
@@ -57,27 +58,27 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                peak_rpm=9,
+                peak_rpm=10,
                 dist_per_step=0.0156,
-                max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=1,
+                reversed=False
             )
-
-            # self._wrapped_actuators['xmotor'].go_to_zero(0)
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
                 peak_rpm=9,
                 dist_per_step=0.0156,
-                max_dist=16.0,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=2,
+                reversed=False
             )
 
-            # self._wrapped_actuators['ymotor'].go_to_zero(1)
+        def zero(self):
+            self._wrapped_actuators['xmotor'].go_to_zero(0)
+            self._wrapped_actuators['xmotor'].go_to_zero(1)
 
         def send(self, dest):
             xmotor = self._wrapped_actuators['xmotor']
@@ -185,14 +186,17 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                peak_rpm=3,
+                peak_rpm=9,
                 dist_per_step=0.00025,
-                max_dist=3.0,
                 addr=0x61,
+                max_dist=2.0,
                 steps_per_rev=200,
                 stepper_num=1,
                 reversed=True
             )
+
+        def zero(self):
+            pass
 
         def send(self, bool_command):
             act = self._wrapped_actuators['nozzle']
@@ -231,7 +235,9 @@ class IcingStage(Stage):
                 steps_per_rev=200,
                 stepper_num=2,
             )
-            # self._wrapped_actuators['platform'].go_to_zero(2)
+
+        def zero(self):
+            self._wrapped_actuators['platform'].go_to_zero(2)
 
         def send(self, bool_command):
             act = self._wrapped_actuators['platform']
@@ -253,7 +259,7 @@ class IcingStage(Stage):
 
     logger = logging.getLogger('cookiebot.Stage.IcingStage')
 
-    def __init__(self):
+    def __init__(self, zero=False, wrappers=[1, 2, 3]):
         '''
         constructor
         '''
@@ -262,15 +268,24 @@ class IcingStage(Stage):
 
         self.steps = []
 
-        # Set up assorted parameters
-        self.x_cookie_shift = (9.0, 4.0)
-        self.y_cookie_shift = (9.0, 4.0)
-
         self._wrappers = {
             IcingStage.WrapperID.carriage: IcingStage.CarriageWrapper(),
             IcingStage.WrapperID.nozzle: IcingStage.NozzleWrapper(),
             IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
         }
+
+        self.active_wrappers = wrappers
+
+        # Set up assorted parameters
+        if not zero:
+            self.x_cookie_shift = (0.0, 4.0)
+            self.y_cookie_shift = (0.0, 4.0)
+        if zero:
+            self.x_cookie_shift = (0.0, 4.0)
+            self.y_cookie_shift = (0.0, 4.0)
+
+            for wrap in self._wrappers:
+                wrap.zero()
 
         self._recipe_timer = RepeatedTimer(
             0.1, self._check_recipe, start=False)
@@ -312,11 +327,16 @@ class IcingStage(Stage):
             self.logger.info('Executing step {0}'.format(next_step))
 
             for actuator, command in next_step.items():
-                self._wrappers[actuator].pause()
-                self._wrappers[actuator].send(command)
+                if actuator in self.active_wrappers:
+                    self._wrappers[actuator].pause()
+                    self._wrappers[actuator].send(command)
+                else:
+                    self.logger.debug(
+                        'Not taking steps for actuator {0}'.format(actuator))
 
             for actuator, command in next_step.items():
-                self._wrappers[actuator].unpause()
+                if actuator in self.active_wrappers:
+                    self._wrappers[actuator].unpause()
 
     def _check_actuators(self):
         for w in self._wrappers.values():
@@ -338,9 +358,6 @@ class IcingStage(Stage):
         self.logger.info('Begining recipe load')
 
         parsed = []
-
-        # every recipe starts by raising the platform, stopping the nozzle and
-        # zeroing the carriage
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
                        IcingStage.WrapperID.nozzle: False,
@@ -429,6 +446,27 @@ class IcingStage(Stage):
         return (x, y)
 
 
+def opts():
+    parser = argparse.ArgumentParser(
+        description='Test full- or partial-stage control',
+        add_help=True, prog='cookiebot_icing_stage')
+
+    parser.add_argument(
+        '--freeze', nargs='*',
+        help='List actuator numbers to NOT actuate; 1=XYMotion, 2=Platform, 3=Nozzle')
+
+    parser.add_argument(
+        '--recipe',
+        help='Define which file to use as a recipe.  Options are "square", "duke_d", and "duke_d_outline"'
+    )
+
+    parser.add_argument(
+        '--zero', action='store_true',
+        help='Choose whether or not to zero the actuators.  Default False')
+
+    return parser
+
+
 def main():
     from cookiebot.recipe import Recipe, RecipeError
 
@@ -437,10 +475,13 @@ def main():
     logging.basicConfig(
         level=logging.INFO, format=displayformat, stream=sys.stdout)
 
-    r = Recipe()
-    r.add_cookie({'icing': Recipe.IcingType.duke_outline}, (0, 0))
+    args = opts().parse_args()
 
-    stage = IcingStage()
+    r = Recipe()
+    r.add_cookie({'icing': getattr(Recipe.IcingType, args.recipe)}, (0, 0))
+
+    stage = IcingStage(zero=args.zero, stages=[1, 2, 3] - args.freeze)
+
     try:
         stage.load_recipe(r)
     except RecipeError, IOError:
@@ -452,7 +493,7 @@ def main():
     stage.start_recipe()
 
     while not stage.recipe_done() and stage.live:
-        time.sleep(0.5)
+        time.sleep(5.0)
 
     if not stage.live:
         print 'Stage finished with an error'
