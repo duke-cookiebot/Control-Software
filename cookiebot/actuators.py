@@ -13,11 +13,11 @@ import sys
 import argparse
 
 
-onPI = True
+onPI = False
 
 if onPI:
-    from Adafruit_MotorHAT import Adafruit_MotorHAT
-    import RPi.GPIO as GPIO
+    from Adafruit_MotorHAT import Adafruit_MotorHAT  # @UnresolvedImport
+    import RPi.GPIO as GPIO  # @UnresolvedImport
     GPIO.setmode(GPIO.BOARD)
 
 
@@ -69,8 +69,8 @@ class Actuator(object):
             raise CommandError('Actuator is dead and cannot be commanded')
 
         if self.state is Actuator.State.executing_blocked:
-            self.logger.warning(
-                'Cannot change task while executing a blocking task')
+            self.logger.error(
+                'Cannot change task on {0} while executing a blocking task'.format(self))
             raise CommandError(
                 'Cannot change task while executing a blocking task')
 
@@ -82,6 +82,8 @@ class Actuator(object):
 
         self._task = task
         self._task_is_blocking = blocking
+
+        self._run_execution()
 
     def _run_execution(self):
         '''Private method called repeatedly and frequently to update the state
@@ -121,7 +123,7 @@ class Actuator(object):
         Because that causes a "joining self" error on the thread
         '''
 
-        self.logger.info(
+        self.logger.debug(
             'Killing actuator {0} and stopping thread'.format(self))
         self.state = Actuator.State.dead
         self.pause()
@@ -220,7 +222,8 @@ class StepperActuator(Actuator):
                  steps_per_rev=200,
                  stepper_num=1,
                  step_type=StepType.single,
-                 reversed=False):
+                 reversed=False,
+                 zero_pins={'start': 0, 'end': 0}):
         '''
         Constructor
 
@@ -238,20 +241,17 @@ class StepperActuator(Actuator):
             identity=identity, run_interval=run_interval)
 
         self.step_style = step_type
-        if onPI:
-            self.hat = Adafruit_MotorHAT(addr=addr)
-            self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
-            self.motors = [1, 2] if stepper_num == 1 else [3, 4]
-        else:
-            self.hat = None
-            self.stepper = None
-            self.motors = []
 
         self.step_pos = 0
         self.step_size = dist_per_step
         self.max_steps = int(max_dist / self.step_size)
+        self.zero_pins = zero_pins
 
         if onPI:
+            self.hat = Adafruit_MotorHAT(addr=addr)
+            self.stepper = self.hat.getStepper(steps_per_rev, stepper_num)
+            self.motors = [1, 2] if stepper_num == 1 else [3, 4]
+
             if reversed:
                 self.forward = Adafruit_MotorHAT.BACKWARD
                 self.backward = Adafruit_MotorHAT.FORWARD
@@ -259,12 +259,19 @@ class StepperActuator(Actuator):
                 self.forward = Adafruit_MotorHAT.FORWARD
                 self.backward = Adafruit_MotorHAT.BACKWARD
 
-    def go_to_zero(self, pin_to_listen):
+            for pin in self.zero_pins.itervalues():
+                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+        else:
+            self.hat = None
+            self.stepper = None
+            self.motors = []
+
+    def go_to_zero(self):
+        pin_to_listen = self.zero_pins['start']
 
         # do stuff here - how does GPIO work?
         if onPI:
-            GPIO.setup(pin_to_listen, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
             while GPIO.input(pin_to_listen) == GPIO.HIGH:
                 time.sleep(0.01)
                 self.stepper.oneStep(
@@ -284,7 +291,10 @@ class StepperActuator(Actuator):
 
     def _check_bounds(self):
         """TBD"""
-        return True
+        if onPI:
+            return all([GPIO.input(p) == GPIO.HIGH for p in self.zero_pins.values()])
+        else:
+            return True
 
     def _validate_task(self, task):
         '''Check that task is an iterable containing only -1, 0 or 1'''
@@ -442,14 +452,19 @@ def main():
 
     for act in actuators:
         act.unpause()
+    try:
+        while not all([act._task_is_complete() for act in actuators]):
+            time.sleep(1)
+            logging.info('Executing tasks')
+    except (KeyboardInterrupt, SystemExit) as e:
+        logging.error('System terminating exception raised')
+        logging.error('Error code: {0}'.format(e))
+    else:
+        logging.info('Program execution finished succesfully')
+    finally:
+        logging.info('Killing all actuators')
+        list(act.kill() for act in actuators)
 
-    while not all([act._task_is_complete() for act in actuators]):
-        time.sleep(1)
-        logging.info('Executing tasks')
-
-    list(act.kill() for act in actuators)
-
-    logging.info('Program execution finished')
 
 if __name__ == "__main__":
     main()

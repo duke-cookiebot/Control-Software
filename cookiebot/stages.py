@@ -14,6 +14,7 @@ import os
 import sys
 import argparse
 from collections import defaultdict
+from enum import IntEnum
 
 MAIN_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DATA_DIR = os.path.join(MAIN_DIR, 'data')
@@ -43,10 +44,10 @@ class IcingStage(Stage):
     classdocs
     '''
     @enum.unique
-    class WrapperID(enum):
-        carriage = 1  # blocking
-        platform = 2  # blocking
-        nozzle = 3  # non-blocking
+    class WrapperID(IntEnum):
+        carriage = 0  # blocking
+        platform = 1  # blocking
+        nozzle = 2  # non-blocking
 
     class CarriageWrapper(ActuatorWrapper):
         logger = logging.getLogger('cookiebot.ActuatorWrapper.CarriageWrapper')
@@ -58,8 +59,8 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                peak_rpm=10,
-                dist_per_step=0.0156,
+                peak_rpm=5,
+                dist_per_step=0.0122,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=1,
@@ -68,8 +69,8 @@ class IcingStage(Stage):
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                peak_rpm=9,
-                dist_per_step=0.0156,
+                peak_rpm=5,
+                dist_per_step=0.0128,
                 addr=0x60,
                 steps_per_rev=200,
                 stepper_num=2,
@@ -77,8 +78,8 @@ class IcingStage(Stage):
             )
 
         def zero(self):
-            self._wrapped_actuators['xmotor'].go_to_zero(0)
-            self._wrapped_actuators['xmotor'].go_to_zero(1)
+            self._wrapped_actuators['xmotor'].go_to_zero()
+            self._wrapped_actuators['xmotor'].go_to_zero()
 
         def send(self, dest):
             xmotor = self._wrapped_actuators['xmotor']
@@ -91,7 +92,7 @@ class IcingStage(Stage):
             step_delta = (
                 int(deltas[0] / xmotor.step_size), int(deltas[1] / ymotor.step_size))
 
-            self.logger.info(
+            self.logger.debug(
                 'Need to move {0} steps from {1} to {2}'.format(step_delta, pos, dest))
 
             step_points = self.bresenham((0, 0), step_delta)
@@ -186,10 +187,10 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                peak_rpm=9,
+                peak_rpm=10,
                 dist_per_step=0.00025,
                 addr=0x61,
-                max_dist=2.0,
+                max_dist=1.0,
                 steps_per_rev=200,
                 stepper_num=1,
                 reversed=True
@@ -202,14 +203,14 @@ class IcingStage(Stage):
             act = self._wrapped_actuators['nozzle']
 
             if not bool_command:
-                self.logger.info(
+                self.logger.debug(
                     'Sending an empty task to turn off the nozzle')
                 act.set_task(
-                    task=array.array('b', [-1 for _ in xrange(-5)]),
-                    blocking=False)
+                    task=array.array('b', [-1 for _ in xrange(100)]),
+                    blocking=True)
             else:
                 ticks_to_go = act.max_steps - act.step_pos
-                self.logger.info(
+                self.logger.debug(
                     'Sending {0} forward steps to keep the nozzle running until 1) it runs out or 2) the task is changed'.format(ticks_to_go))
 
                 act.set_task(
@@ -237,7 +238,7 @@ class IcingStage(Stage):
             )
 
         def zero(self):
-            self._wrapped_actuators['platform'].go_to_zero(2)
+            pass
 
         def send(self, bool_command):
             act = self._wrapped_actuators['platform']
@@ -247,19 +248,19 @@ class IcingStage(Stage):
                 act.set_task(
                     task=array.array('b', [1 for _ in xrange(ticks_to_go)]),
                     blocking=True)
-                self.logger.info(
+                self.logger.debug(
                     'Sending {0} raising steps'.format(ticks_to_go))
             else:
                 ticks_to_go = act.step_pos
                 act.set_task(
                     task=array.array('b', [-1 for _ in xrange(ticks_to_go)]),
                     blocking=True)
-                self.logger.info(
+                self.logger.debug(
                     'Sending {0} lowering steps'.format(ticks_to_go))
 
     logger = logging.getLogger('cookiebot.Stage.IcingStage')
 
-    def __init__(self, zero=False, wrappers=[1, 2, 3]):
+    def __init__(self, zero=False, actuators=[0, 1, 2]):
         '''
         constructor
         '''
@@ -274,15 +275,17 @@ class IcingStage(Stage):
             IcingStage.WrapperID.platform: IcingStage.PlatformWrapper()
         }
 
-        self.active_wrappers = wrappers
+        self.active_wrappers = [id for id in self._wrappers.keys() if id.value in actuators]
+        self.logger.debug('Active wrappers are {0}'.format(self.active_wrappers))
 
         # Set up assorted parameters
         if not zero:
             self.x_cookie_shift = (0.0, 4.0)
             self.y_cookie_shift = (0.0, 4.0)
         if zero:
-            self.x_cookie_shift = (0.0, 4.0)
-            self.y_cookie_shift = (0.0, 4.0)
+            self.logger.info('Commanded to zero before execution')
+            self.x_cookie_shift = (9.0, 4.0)
+            self.y_cookie_shift = (9.0, 4.0)
 
             for wrap in self._wrappers:
                 wrap.zero()
@@ -452,12 +455,12 @@ def opts():
         add_help=True, prog='cookiebot_icing_stage')
 
     parser.add_argument(
-        '--freeze', nargs='*',
-        help='List actuator numbers to NOT actuate; 1=XYMotion, 2=Platform, 3=Nozzle')
+        '--freeze', nargs='*', type=int, default=[],
+        help='List actuator numbers to NOT actuate; 0=XYMotion, 1=Platform, 2=Nozzle')
 
     parser.add_argument(
         '--recipe',
-        help='Define which file to use as a recipe.  Options are "square", "duke_d", and "duke_d_outline"'
+        help='Define which file to use as a recipe.  Options are "square", "duke_d", and "duke_outline"'
     )
 
     parser.add_argument(
@@ -480,27 +483,43 @@ def main():
     r = Recipe()
     r.add_cookie({'icing': getattr(Recipe.IcingType, args.recipe)}, (0, 0))
 
-    stage = IcingStage(zero=args.zero, stages=[1, 2, 3] - args.freeze)
+    print args.freeze
+    s = set(args.freeze)
+    actuators = [a for a in [0, 1, 2] if a not in s]
+
+    stage = IcingStage(zero=args.zero, actuators=actuators)
 
     try:
         stage.load_recipe(r)
-    except RecipeError, IOError:
-        print 'Something is wrong with that recipe file! Shutting down.'
+    except (RecipeError, IOError) as e:
+        logging.error(
+            'Something is wrong with that recipe file! Shutting down.')
         stage.shutdown()
-        return
+        raise e
 
-    starttime = time.time()
-    stage.start_recipe()
+    try:
+        starttime = time.time()
+        stage.start_recipe()
 
-    while not stage.recipe_done() and stage.live:
-        time.sleep(5.0)
+        while not stage.recipe_done() and stage.live:
+            time.sleep(5.0)
+            logging.info('Executing the recipe provided')
 
-    if not stage.live:
-        print 'Stage finished with an error'
+        if not stage.live:
+            logging.error('Stage finished with an error')
+
+        else:
+            logging.info(
+                'Finished the recipe in {0} seconds!'.format(time.time() - starttime))
+
+    except (KeyboardInterrupt, SystemExit) as e:
+        logging.error('Execution-ending exception raised')
+        logging.error('Error message: {0}'.format(e))
     else:
-        print 'Finished the recipe in {0} seconds!'.format(time.time() - starttime)
-
-    stage.shutdown()
+        logging.info('Execution finished without error')
+    finally:
+        logging.info('Shutting down the stage and its actuators')
+        stage.shutdown()
 
 if __name__ == '__main__':
     main()
