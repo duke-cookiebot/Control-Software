@@ -1,6 +1,6 @@
-{0: (-1, 1), 2: False} #Get to the top left corner with the nozzle off
-{0: (1, 1), 2: True} #Turn the nozzle on and move to the top right
-{0: (1, -1)} #Move to the bottom right corner (nozzle stays on)
-{0: (-1, -1)} #Move to the bottom left corner
-{0: (-1, 1)} #Move to the top left corner
+{0: (-0.583, 0.583), 2: False} #Get to the top left corner with the nozzle off
+{0: (0.583, 0.583), 2: True} #Turn the nozzle on and move to the top right
+{0: (0.583, -0.583)} #Move to the bottom right corner (nozzle stays on)
+{0: (-0.583, -0.583)} #Move to the bottom left corner
+{0: (-0.583, 0.583)} #Move to the top left corner
 {2: False} #Turn the nozzle off after you arrive
