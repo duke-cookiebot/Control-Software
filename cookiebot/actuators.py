@@ -13,7 +13,7 @@ import sys
 import argparse
 
 
-onPI = False
+onPI = True
 
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT  # @UnresolvedImport
@@ -91,7 +91,8 @@ class Actuator(object):
         Raises ExecutionError if something goes wrong
         '''
 
-        if self._task and self.state == Actuator.State.ready:
+        if self._task and self.state == Actuator.State.ready or self.state == Actuator.State.executing:
+            self.logger.debug('Task received and started for {0}'.format(self))
             self.state = Actuator.State.executing_blocked if self._task_is_blocking else Actuator.State.executing
 
         if self.state == Actuator.State.executing or self.state == Actuator.State.executing_blocked:
@@ -221,9 +222,9 @@ class StepperActuator(Actuator):
                  addr=0x60,
                  steps_per_rev=200,
                  stepper_num=1,
-                 step_type=StepType.single,
+                 step_type=StepType.double,
                  reversed=False,
-                 zero_pins={'start': 0, 'end': 0}):
+                 zero_pins={'start': 4, 'end': 4}):
         '''
         Constructor
 
@@ -259,24 +260,30 @@ class StepperActuator(Actuator):
                 self.forward = Adafruit_MotorHAT.FORWARD
                 self.backward = Adafruit_MotorHAT.BACKWARD
 
-            for pin in self.zero_pins.itervalues():
-                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            #for pin in self.zero_pins.itervalues():
+            #    GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
         else:
             self.hat = None
             self.stepper = None
             self.motors = []
 
+    def set_rpm(self, new_rpm):
+        """Set a new rpm value for this StepperActuator"""
+        new_interval = 1.0 / (new_rpm * 200.0 / 60.0)
+        self._timer.interval = new_interval
+
     def go_to_zero(self):
         pin_to_listen = self.zero_pins['start']
 
         # do stuff here - how does GPIO work?
         if onPI:
-            while GPIO.input(pin_to_listen) == GPIO.HIGH:
-                time.sleep(0.01)
-                self.stepper.oneStep(
-                    self.backward, self.step_style.value)
-
+            #while GPIO.input(pin_to_listen) == GPIO.HIGH:
+            #    time.sleep(0.01)
+            #    self.stepper.oneStep(
+            #        self.backward, self.step_style.value)
+            pass
+        
         self.step_pos = 0
 
     def kill(self):
@@ -292,7 +299,8 @@ class StepperActuator(Actuator):
     def _check_bounds(self):
         """TBD"""
         if onPI:
-            return all([GPIO.input(p) == GPIO.HIGH for p in self.zero_pins.values()])
+            return True
+            #return all([GPIO.input(p) == GPIO.HIGH for p in self.zero_pins.values()])
         else:
             return True
 

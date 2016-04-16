@@ -1,5 +1,6 @@
-{0: (0.417, 1), 2: False} #Move to top start with the nozzle off
-{0: (0.75, 1), 2: True} #Turn nozzle on, move right TOP RIGHT OUTER CORNER
+{0: (0.417, 1)} #Move to top start with the nozzle off
+{2: 'on'}
+{0: (0.75, 1), 2: 'run'} #Turn nozzle on, move right TOP RIGHT OUTER CORNER
 {0: (0.75, 0.833)} #Move down two
 {0: (0.833, 0.833)} #Move right one
 {0: (0.833, 0.667)} #Move down two
@@ -34,3 +35,4 @@
 {0: (0.083, 0.75)} #Move right one
 {0: (0.083, 0.917)} #Move up two
 {0: (0.25, 0.917)} #Move right two #DONE FUCK YEAH
+{2: 'off'}

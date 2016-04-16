@@ -59,21 +59,21 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                peak_rpm=5,
+                peak_rpm=9,
                 dist_per_step=0.0122,
                 addr=0x60,
                 steps_per_rev=200,
-                stepper_num=1,
+                stepper_num=2,
                 reversed=False
             )
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                peak_rpm=5,
+                peak_rpm=9,
                 dist_per_step=0.0128,
                 addr=0x60,
                 steps_per_rev=200,
-                stepper_num=2,
+                stepper_num=1,
                 reversed=False
             )
 
@@ -187,10 +187,10 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                peak_rpm=10,
+                peak_rpm=2.35,
                 dist_per_step=0.00025,
                 addr=0x61,
-                max_dist=1.0,
+                max_dist=1,
                 steps_per_rev=200,
                 stepper_num=1,
                 reversed=True
@@ -199,23 +199,39 @@ class IcingStage(Stage):
         def zero(self):
             pass
 
-        def send(self, bool_command):
+        def send(self, command):
             act = self._wrapped_actuators['nozzle']
 
-            if not bool_command:
+            if command == 'off':
                 self.logger.debug(
-                    'Sending an empty task to turn off the nozzle')
+                    'Sending a short, blocking, shutoff task to turn off the nozzle')
+                act.set_rpm(15)
+                task = [-1 for _ in xrange(225)]
+                task.extend([0 for _ in xrange(50)])
+                
                 act.set_task(
-                    task=array.array('b', [-1 for _ in xrange(100)]),
+                    task=array.array('b', task),
                     blocking=True)
-            else:
+                
+            elif command == 'run':
                 ticks_to_go = act.max_steps - act.step_pos
                 self.logger.debug(
                     'Sending {0} forward steps to keep the nozzle running until 1) it runs out or 2) the task is changed'.format(ticks_to_go))
-
+                act.set_rpm(2.35)
                 act.set_task(
                     task=array.array('b', [1 for _ in xrange(ticks_to_go)]),
                     blocking=False)
+                
+            elif command == 'on':
+                act.set_rpm(15)
+                self.logger.debug('Sending a short, blocking, start-up command to turn on the nozzle')
+
+                task = [1 for _ in xrange(225)]
+                task.extend([0 for _ in xrange(50)])
+                
+                act.set_task(
+                    task=array.array('b', task),
+                    blocking=True)
 
     class PlatformWrapper(ActuatorWrapper):
 
@@ -231,7 +247,7 @@ class IcingStage(Stage):
                 identity='Platform Stepper',
                 peak_rpm=30,
                 dist_per_step=0.00025,
-                max_dist=1.0,
+                max_dist=0.25,
                 addr=0x61,
                 steps_per_rev=200,
                 stepper_num=2,
@@ -268,6 +284,7 @@ class IcingStage(Stage):
         super(IcingStage, self).__init__()
 
         self.steps = []
+        self.step_ready = True
 
         self._wrappers = {
             IcingStage.WrapperID.carriage: IcingStage.CarriageWrapper(),
@@ -324,8 +341,9 @@ class IcingStage(Stage):
         '''Frequently-called method that checks if another step of the recipe
         should be executed, and executes it if so'''
 
-        if self.live and self.steps and self._check_actuators():
+        if self.live and self.step_ready and self.steps and self._check_actuators():
             # we need to start the next command
+            self.step_ready = False #boring mutex on _check_recipe
             next_step, self.steps = self.steps[0], self.steps[1:]
             self.logger.info('Executing step {0}'.format(next_step))
 
@@ -340,6 +358,8 @@ class IcingStage(Stage):
             for actuator, command in next_step.items():
                 if actuator in self.active_wrappers:
                     self._wrappers[actuator].unpause()
+
+            self.step_ready = True
 
     def _check_actuators(self):
         for w in self._wrappers.values():
@@ -363,11 +383,10 @@ class IcingStage(Stage):
         parsed = []
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
-                       IcingStage.WrapperID.nozzle: False,
                        IcingStage.WrapperID.platform: True
                        })
 
-        for cookie_pos, cookie_spec in recipe.cookies.iteritems():
+        for cookie_pos, cookie_spec in recipe.cookies:
             icing_coms = self._load_icing_file(cookie_spec['icing'].value)
             offset_coms = self._offset_commands(icing_coms, cookie_pos)
             parsed.extend(offset_coms)
@@ -376,7 +395,6 @@ class IcingStage(Stage):
         # lowering the platform
 
         parsed.append({IcingStage.WrapperID.carriage: (0, 0),
-                       IcingStage.WrapperID.nozzle: False,
                        IcingStage.WrapperID.platform: False
                        })
 
@@ -459,8 +477,8 @@ def opts():
         help='List actuator numbers to NOT actuate; 0=XYMotion, 1=Platform, 2=Nozzle')
 
     parser.add_argument(
-        '--recipe',
-        help='Define which file to use as a recipe.  Options are "square", "duke_d", and "duke_outline"'
+        '--recipes', nargs='*', default=[],
+        help='Define which file to use as a recipe.  Options are "square", "duke_fill", "duke_outline", and "maze"'
     )
 
     parser.add_argument(
@@ -476,14 +494,17 @@ def main():
     displayformat = '%(levelname)s: %(asctime)s from %(name)s in %(funcName)s: %(message)s'
 
     logging.basicConfig(
-        level=logging.INFO, format=displayformat, stream=sys.stdout)
+        level=logging.DEBUG, format=displayformat, stream=sys.stdout)
 
     args = opts().parse_args()
 
     r = Recipe()
-    r.add_cookie({'icing': getattr(Recipe.IcingType, args.recipe)}, (0, 0))
+    cookie_positions = [(0,0), (1, 0), (0, 1), (1, 1)]
 
-    print args.freeze
+    for recipe, pos in zip(args.recipes, cookie_positions):
+        logging.info('Adding a {0} cookie to position {1}'.format(recipe, pos))
+        r.add_cookie({'icing': getattr(Recipe.IcingType, recipe)}, pos)
+        
     s = set(args.freeze)
     actuators = [a for a in [0, 1, 2] if a not in s]
 
@@ -514,7 +535,6 @@ def main():
 
     except (KeyboardInterrupt, SystemExit) as e:
         logging.error('Execution-ending exception raised')
-        logging.error('Error message: {0}'.format(e))
     else:
         logging.info('Execution finished without error')
     finally:

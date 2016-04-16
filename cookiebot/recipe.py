@@ -6,7 +6,6 @@ Created on Jan 18, 2016
 
 import enum
 
-
 class RecipeError(Exception):
     pass
 
@@ -25,11 +24,12 @@ class Recipe(object):
     @enum.unique
     class IcingType(enum.Enum):
         square = 'icing_patterns/square.txt'
-        duke_d = 'icing_patterns/duke_d12_fill.txt'
+        duke_fill = 'icing_patterns/duke_d12_fill.txt'
         duke_outline = 'icing_patterns/duke_d12_outline.txt'
+        maze = 'icing_patterns/maze.txt'
 
     def __init__(self):
-        self.cookies = {}
+        self.cookies = []
 
     def add_cookie(self, cookiespec, pos=(0, 0)):
         '''Adds cookie to this recipe's cookie dictionary
@@ -45,4 +45,4 @@ class Recipe(object):
                 The above is a valid cookiespec for an icing-only cookiebot
         '''
 
-        self.cookies[pos] = cookiespec
+        self.cookies.append((pos, cookiespec))

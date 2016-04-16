@@ -1,27 +1,34 @@
-{0: (-0.583, 1), 2: False} #Move to the top left corner with the nozzle off
-{0: (0.750, 1), 2: True} #Turn the nozzle on and move right; 1st row complete
+{0: (-0.583, 1)} #Move to the top left corner with the nozzle off
+{2: 'on'}
+{0: (0.750, 1), 2: 'run'} #Turn the nozzle on and move right; 1st row complete
 {0: (0.750, 0.917)} #Move down to second row
 {0: (0.333, 0.917)} #Move left
-{2: False} #Turn the nozzle off
+{2: 'off'} #Turn the nozzle off
 {0: (0.167, 0.917)} #Move to next start point with nozzle off
-{0: (-0.583, 0.917), 2: True} #Turn nozzle on and move left; 2nd row complete
-{2: False} #Turn the nozzle off 
+{2: 'on'}
+{0: (-0.583, 0.917), 2: 'run'} #Turn nozzle on and move left; 2nd row complete
+{2: 'off'} #Turn the nozzle off 
 {0: (-0.5, 0.833)} #Move to start of 3rd row with nozzle off
-{0: (0.083, 0.833), 2: True} #Turn on nozzle, dispense right
-{2: False} #Turn the nozzle off 
+{2: 'on'}
+{0: (0.083, 0.833), 2: 'run'} #Turn on nozzle, dispense right
+{2: 'off'} #Turn the nozzle off 
 {0: (0.417, 0.833)} #Move to next start spot
-{0: (0.833, 0.833), 2: True} #Turn nozzle on, move to right; 3rd row complete
+{2: 'on'}
+{0: (0.833, 0.833), 2: 'run'} #Turn nozzle on, move to right; 3rd row complete
 {0: (0.833, 0.750)} #Move down to 4th row
 {0: (0.417, 0.750)} #Move left
-{2: False} #Turn the nozzle off 
+{2: 'off'} #Turn the nozzle off 
 {0: (0.083, 0.750)} #Move to start position
-{0: (-0.5, 0.750), 2: True} #Turn nozzle on, move left; 4th row complete
-{2: False} #Turn the nozzle off 
+{2: 'on'}
+{0: (-0.5, 0.750), 2: 'run'} #Turn nozzle on, move left; 4th row complete
+{2: 'off'} #Turn the nozzle off 
 {0: (-0.417, 0.667)} #Move to start position 5th row
-{0: (0, 0.667), 2: True} #Turn nozzle on, move right
-{2: False} #Turn the nozzle off 
+{2: 'on'}
+{0: (0, 0.667), 2: 'run'} #Turn nozzle on, move right
+{2: 'off'} #Turn the nozzle off 
 {0: (0.5, 0.667)} #Move to next start position 5th row
-{0: (0.917, 0.667), 2: True} #Turn nozzle on, move right; 5th row complete
+{2: 'on'}
+{0: (0.917, 0.667), 2: 'run'} #Turn nozzle on, move right; 5th row complete
 {0: (0.917, 0.583)} #Move one down
 {0: (0.5, 0.583)} #6th row right complete
 {0: (0.5, 0.5)} #Move one down
@@ -52,27 +59,32 @@
 {0: (0.917, -0.5)} #19th right complete
 {0: (0.917, -0.583)} #Move down
 {0: (0.5, -0.583)} #20th right complete
-{2: False} #Turn the nozzle off 
+{2: 'off'} #Turn the nozzle off 
 {0: (0.417, -0.667)} #Move to new start point
-{0: (0.833, -0.667), 2: True} #Turn on nozzle, move right; 21st right complete
+{2: 'on'}
+{0: (0.833, -0.667), 2: 'run'} #Turn on nozzle, move right; 21st right complete
 {0: (0.833, -0.75)} #Move down
 {0: (0.417, -0.75)} #Move left; 22nd right complete
-{2: False} #Turn the nozzle off 
+{2: 'off'} #Turn the nozzle off 
 {0: (0.333, -0.833)} #Move to new start point
-{0: (0.75, -0.833), 2: True} #Turn nozzle on, move right; 23rd right complete
+{2: 'on'}
+{0: (0.75, -0.833), 2: 'run'} #Turn nozzle on, move right; 23rd right complete
 {0: (0.75, -0.917)} #Move down
 {0: (-0.583, -0.917)} #Move left; bottom most row 24 complete
 {0: (-0.583, -0.833)} #Move up one
 {0: (0.167, -0.833)} #Move right; 23rd left complete
-{2: False} #Turn the nozzle off 
+{2: 'off'} #Turn the nozzle off 
 {0: (0.083, -0.75)} #Move to next start point
-{0: (-0.5, -0.75), 2: True} #Turn nozzle on, move left; 22nd left complete
+{2: 'on'}
+{0: (-0.5, -0.75), 2: 'run'} #Turn nozzle on, move left; 22nd left complete
 {0: (-0.5, -0.667)} #Move up one
 {0: (0.083, -0.667)} #Move right; 21st left complete
-{2: False} #Turn the nozzle off 
+{2: 'off'} #Turn the nozzle off 
 {0: (0, -0.583)} #Move to next start position
-{0: (-0.417, -0.583), 2: True} #20th left complete
+{2: 'on'}
+{0: (-0.417, -0.583), 2: 'run'} #20th left complete
 {0: (-0.417, -0.5)} #Move up
+{2: 'off'}
 {0: (0, -0.5)} #19th left complete
 {0: (0, -0.417)} #Move up
 {0: (-0.417, -0.417)} #18th left complete
@@ -101,4 +113,4 @@
 {0: (0, 0.583)} #move up
 {0: (-0.417, 0.583)} #6th complete
 {0: (-0.417, 0.667)} #move up
-{2: False} #Turn the nozzle off DONE FUCK YEAH
+{2: 'off'} #Turn the nozzle off DONE FUCK YEAH
