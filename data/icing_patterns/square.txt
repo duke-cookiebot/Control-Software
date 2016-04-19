@@ -3,5 +3,9 @@
 {0: (0.583, 0.583), 2: 'run'} #Turn the nozzle on and move to the top right
 {0: (0.583, -0.583)} #Move to the bottom right corner (nozzle stays on)
 {0: (-0.583, -0.583)} #Move to the bottom left corner
+{0: (-0.583, 0.583)} #Move to the top left corner and begin stopping the nozzle
+{0: (0.583, 0.583)} #Turn the nozzle on and move to the top right
+{0: (0.583, -0.583)} #Move to the bottom right corner (nozzle stays on)
+{0: (-0.583, -0.583)} #Move to the bottom left corner
 {0: (-0.583, 0)} #Move halfway along the left side
 {0: (-0.583, 0.583), 2: 'off'} #Move to the top left corner and begin stopping the nozzle

@@ -59,21 +59,21 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['xmotor'] = StepperActuator(
                 identity='X-axis Stepper',
-                peak_rpm=9,
-                dist_per_step=0.0122,
+                peak_rpm=8,
+                dist_per_step=0.014,
                 addr=0x60,
                 steps_per_rev=200,
-                stepper_num=2,
+                stepper_num=1,
                 reversed=False
             )
 
             self._wrapped_actuators['ymotor'] = StepperActuator(
                 identity='Y-axis Stepper',
-                peak_rpm=9,
-                dist_per_step=0.0128,
+                peak_rpm=8,
+                dist_per_step=0.014,
                 addr=0x60,
                 steps_per_rev=200,
-                stepper_num=1,
+                stepper_num=2,
                 reversed=False
             )
 
@@ -187,10 +187,10 @@ class IcingStage(Stage):
             # addr, stepper_num, and dist_per_step especially are crucial
             self._wrapped_actuators['nozzle'] = StepperActuator(
                 identity='Nozzle Stepper',
-                peak_rpm=2.35,
+                peak_rpm=3.6,
                 dist_per_step=0.00025,
                 addr=0x61,
-                max_dist=1,
+                max_dist=2.0,
                 steps_per_rev=200,
                 stepper_num=1,
                 reversed=True
@@ -206,18 +206,19 @@ class IcingStage(Stage):
                 self.logger.debug(
                     'Sending a short, blocking, shutoff task to turn off the nozzle')
                 act.set_rpm(15)
-                task = [-1 for _ in xrange(225)]
-                task.extend([0 for _ in xrange(50)])
+                task = [-1 for _ in xrange(400)]
+                task.extend([0 for _ in xrange(325)])
+                task.extend([1 for _ in xrange(20)])
                 
                 act.set_task(
                     task=array.array('b', task),
-                    blocking=True)
+                    blocking=False)
                 
             elif command == 'run':
                 ticks_to_go = act.max_steps - act.step_pos
                 self.logger.debug(
                     'Sending {0} forward steps to keep the nozzle running until 1) it runs out or 2) the task is changed'.format(ticks_to_go))
-                act.set_rpm(2.35)
+                act.set_rpm(3.6)
                 act.set_task(
                     task=array.array('b', [1 for _ in xrange(ticks_to_go)]),
                     blocking=False)
@@ -226,8 +227,8 @@ class IcingStage(Stage):
                 act.set_rpm(15)
                 self.logger.debug('Sending a short, blocking, start-up command to turn on the nozzle')
 
-                task = [1 for _ in xrange(225)]
-                task.extend([0 for _ in xrange(50)])
+                task = [1 for _ in xrange(250)]
+                task.extend([0 for _ in xrange(100)])
                 
                 act.set_task(
                     task=array.array('b', task),
@@ -248,9 +249,9 @@ class IcingStage(Stage):
                 peak_rpm=30,
                 dist_per_step=0.00025,
                 max_dist=0.25,
-                addr=0x61,
+                addr=0x60,
                 steps_per_rev=200,
-                stepper_num=2,
+                stepper_num=1,
             )
 
         def zero(self):
@@ -297,8 +298,8 @@ class IcingStage(Stage):
 
         # Set up assorted parameters
         if not zero:
-            self.x_cookie_shift = (0.0, 4.0)
-            self.y_cookie_shift = (0.0, 4.0)
+            self.x_cookie_shift = (0.0, 4.5)
+            self.y_cookie_shift = (0.0, 4.5)
         if zero:
             self.logger.info('Commanded to zero before execution')
             self.x_cookie_shift = (9.0, 4.0)
@@ -478,7 +479,7 @@ def opts():
 
     parser.add_argument(
         '--recipes', nargs='*', default=[],
-        help='Define which file to use as a recipe.  Options are "square", "duke_fill", "duke_outline", and "maze"'
+        help='Define which file to use as a recipe.  Options are "square", "spiral_square", "duke_fill", "d_outline", "u_outline", "k_outline", "e_outline", and "maze"'
     )
 
     parser.add_argument(
@@ -499,7 +500,7 @@ def main():
     args = opts().parse_args()
 
     r = Recipe()
-    cookie_positions = [(0,0), (1, 0), (0, 1), (1, 1)]
+    cookie_positions = [(1, 0), (1, 1), (0, 1), (0, 0)]
 
     for recipe, pos in zip(args.recipes, cookie_positions):
         logging.info('Adding a {0} cookie to position {1}'.format(recipe, pos))

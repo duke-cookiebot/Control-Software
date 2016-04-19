@@ -1,0 +1,4 @@
+{1: (0, 0)} #move to the center
+{2: 'on'} #Begin starting the nozzle
+(2: 'off'} #stop the nozzle
+

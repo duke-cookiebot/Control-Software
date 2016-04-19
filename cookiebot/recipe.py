@@ -25,8 +25,12 @@ class Recipe(object):
     class IcingType(enum.Enum):
         square = 'icing_patterns/square.txt'
         duke_fill = 'icing_patterns/duke_d12_fill.txt'
-        duke_outline = 'icing_patterns/duke_d12_outline.txt'
+        d_outline = 'icing_patterns/duke_d12_outline.txt'
+        u_outline = 'icing_patterns/duke_u12_outline.txt'
+        k_outline = 'icing_patterns/duke_k12_outline.txt'
+        e_outline = 'icing_patterns/duke_e12_outline.txt'
         maze = 'icing_patterns/maze.txt'
+        spiral_square = 'icing_patterns/spiral_square.txt'
 
     def __init__(self):
         self.cookies = []

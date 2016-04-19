@@ -92,7 +92,6 @@ class Actuator(object):
         '''
 
         if self._task and self.state == Actuator.State.ready or self.state == Actuator.State.executing:
-            self.logger.debug('Task received and started for {0}'.format(self))
             self.state = Actuator.State.executing_blocked if self._task_is_blocking else Actuator.State.executing
 
         if self.state == Actuator.State.executing or self.state == Actuator.State.executing_blocked:
