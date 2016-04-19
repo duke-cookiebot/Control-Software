@@ -387,7 +387,7 @@ class IcingStage(Stage):
                        IcingStage.WrapperID.platform: True
                        })
 
-        for cookie_pos, cookie_spec in recipe.cookies:
+        for cookie_pos, cookie_spec in sorted(recipe.cookies.items(), key= lambda p: p[0]):
             icing_coms = self._load_icing_file(cookie_spec['icing'].value)
             offset_coms = self._offset_commands(icing_coms, cookie_pos)
             parsed.extend(offset_coms)
@@ -479,7 +479,7 @@ def opts():
 
     parser.add_argument(
         '--recipes', nargs='*', default=[],
-        help='Define which file to use as a recipe.  Options are "square", "spiral_square", "duke_fill", "d_outline", "u_outline", "k_outline", "e_outline", and "maze"'
+        help='Define which file to use as a recipe.  Options are "square", "spiral_square", "d_outline", "u_outline", "k_outline", "e_outline", "maze", and "blue_devil"'
     )
 
     parser.add_argument(
