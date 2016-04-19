@@ -249,9 +249,9 @@ class IcingStage(Stage):
                 peak_rpm=30,
                 dist_per_step=0.00025,
                 max_dist=0.25,
-                addr=0x60,
+                addr=0x61,
                 steps_per_rev=200,
-                stepper_num=1,
+                stepper_num=2,
             )
 
         def zero(self):
