@@ -120,7 +120,7 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
                         'Something is wrong with that recipe file! Shutting down.')
                     self.stage.shutdown()
                     raise e
-                self.pbar_timer.restart()
+                #self.pbar_timer.restart()
             else:
                 self.logger.info('Rebooting the recipe that was running')
             self.stage.start_recipe()
