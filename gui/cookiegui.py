@@ -5,7 +5,7 @@ Created on Jan 29, 2016
 '''
 # You need these things and probably don't have them
 from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import pyqtSignal
+from PyQt4.QtCore import pyqtSignal, QRectF
 from PyQt4.QtGui import QGraphicsScene, QPixmap
 from PyQt4.uic import loadUiType
 import sys
@@ -15,6 +15,7 @@ import os
 
 from cookiebot.recipe import Recipe, RecipeError
 from cookiebot.stages import IcingStage
+from cookiebot.multithreading import RepeatedTimer
 from threadsafety import OutLog, SignalStream
 
 MAIN_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -83,7 +84,7 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
             Recipe.IcingType.spiral_square,
             Recipe.IcingType.blue_devil
         ]
-        
+
         self.pattern_images = [
             Recipe.IcingImage.d_outline,
             Recipe.IcingImage.u_outline,
@@ -93,6 +94,8 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
             Recipe.IcingImage.spiral_square,
             Recipe.IcingImage.blue_devil
         ]
+        
+        self.timer = RepeatedTimer(0.25, self._update_progress_bar, start=False)
 
         self.show()
 
@@ -111,11 +114,13 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
                 self.logger.info('Starting a new recipe!')
                 try:
                     self.stage.load_recipe(self.recipe)
+                    self.num_steps = float(len(self.stage.steps))
                 except (RecipeError, IOError) as e:
                     logging.error(
                         'Something is wrong with that recipe file! Shutting down.')
                     self.stage.shutdown()
                     raise e
+                self.timer.restart()
             else:
                 self.logger.info('Rebooting the recipe that was running')
             self.stage.start_recipe()
@@ -135,10 +140,11 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
 
             image = self.q_image_displays[pos_idx]
 
-            scene = QGraphicsScene(self)
-            scene.addPixmap(QPixmap(os.path.join(DATA_DIR, self.pattern_images[cookie_idx].value)))
-
+            scene = QGraphicsScene()
+            scene.addPixmap(
+                QPixmap(os.path.join(DATA_DIR, self.pattern_images[cookie_idx].value)))
             image.setScene(scene)
+            image.fitInView(scene.itemsBoundingRect())
 
             image.show()
 
@@ -149,6 +155,9 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
     def _reset_recipe_callback(self):
         if self.stage.live:
             self.recipe = Recipe()
+            if self.stage.steps:
+                self.stage.steps = []
+
             self.logger.info('Recipe cleared')
         else:
             self.logger.info(
@@ -164,7 +173,16 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
         self.logger.warning('Terminating the icing stage')
         self.stage.shutdown()
         self.logger.warning('Stage terminated.  Please exit.')
+        
+    def _update_progress_bar(self):
+        fraction_done = len(self.stage.steps) / self.num_steps if self.num_steps else 1
+        self.progress_bar.setValue(100*(1-fraction_done))
 
+    def closeEvent(self, event):
+        self.logger.error("User has clicked the red x on the main window")
+        self.stage.shutdown()
+        self.timer.stop()
+        event.accept()
 
 def main():
     displayformat = '%(levelname)s: %(asctime)s from %(name)s in %(funcName)s: %(message)s'

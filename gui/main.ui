@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>747</width>
-    <height>646</height>
+    <width>819</width>
+    <height>634</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,7 +20,7 @@
       <item>
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Recipe Selector:</string>
+         <string>Select a recipe:</string>
         </property>
        </widget>
       </item>
@@ -98,7 +98,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>50</width>
+          <width>80</width>
           <height>0</height>
          </size>
         </property>
@@ -178,39 +178,63 @@
      </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QHBoxLayout" name="horizontalLayout_4">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_4">
-        <item>
-         <widget class="QPushButton" name="start_button">
-          <property name="text">
-           <string>Start Recipe</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="stop_button">
-          <property name="text">
-           <string>Stop Recipe</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QProgressBar" name="progress_bar">
-          <property name="value">
-           <number>24</number>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="terminate_button">
-          <property name="text">
-           <string>Terminate Stage</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+       <widget class="QPushButton" name="start_button">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Start Recipe</string>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>../data/icons/play.png</normaloff>../data/icons/play.png</iconset>
+        </property>
+       </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="stop_button">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Pause/Stop Recipe</string>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>../data/icons/pause.png</normaloff>../data/icons/pause.png</iconset>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QProgressBar" name="progress_bar">
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="terminate_button">
+        <property name="text">
+         <string>Terminate Stage</string>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>../data/icons/cancel.png</normaloff>../data/icons/cancel.png</iconset>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
        <widget class="QTextEdit" name="console">
         <property name="sizePolicy">
@@ -251,13 +275,14 @@
     </item>
    </layout>
    <zorder></zorder>
+   <zorder></zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>747</width>
+     <width>819</width>
      <height>22</height>
     </rect>
    </property>

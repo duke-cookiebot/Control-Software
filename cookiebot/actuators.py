@@ -13,7 +13,7 @@ import sys
 import argparse
 
 
-onPI = True
+onPI = False
 
 if onPI:
     from Adafruit_MotorHAT import Adafruit_MotorHAT  # @UnresolvedImport
