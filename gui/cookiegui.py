@@ -71,9 +71,9 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
         self.recipe = Recipe()
         self.stage = IcingStage(zero=False, actuators=[0, 1, 2])
 
-        self.positions = [(0, 0), (1, 0), (1, 1), (0, 1)]
+        self.positions = [(0, 0), (1, 0), (0, 1), (1, 1)]
         self.q_image_displays = [
-            self.image_00, self.image_10, self.image_11, self.image_01]
+            self.image_00, self.image_10, self.image_01, self.image_11]
 
         self.icings = [
             Recipe.IcingType.d_outline,
@@ -94,8 +94,8 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
             Recipe.IcingImage.spiral_square,
             Recipe.IcingImage.blue_devil
         ]
-        
-        self.timer = RepeatedTimer(0.25, self._update_progress_bar, start=False)
+
+        self.pbar_timer = RepeatedTimer(0.25, self._update_progress_bar, start=False)
 
         self.show()
 
@@ -120,7 +120,7 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
                         'Something is wrong with that recipe file! Shutting down.')
                     self.stage.shutdown()
                     raise e
-                self.timer.restart()
+                self.pbar_timer.restart()
             else:
                 self.logger.info('Rebooting the recipe that was running')
             self.stage.start_recipe()
@@ -157,6 +157,9 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
             self.recipe = Recipe()
             if self.stage.steps:
                 self.stage.steps = []
+                
+            for image in self.q_image_displays:
+                image.setScene(QGraphicsScene())
 
             self.logger.info('Recipe cleared')
         else:
@@ -175,13 +178,13 @@ class CookieGUI(Ui_MainWindow, QMainWindow):
         self.logger.warning('Stage terminated.  Please exit.')
         
     def _update_progress_bar(self):
-        fraction_done = len(self.stage.steps) / self.num_steps if self.num_steps else 1
-        self.progress_bar.setValue(100*(1-fraction_done))
+        fraction_to_go = len(self.stage.steps) / self.num_steps if self.num_steps else 1
+        self.progress_bar.setValue(100*(1-fraction_to_go))
 
     def closeEvent(self, event):
-        self.logger.error("User has clicked the red x on the main window")
+        self.logger.info("User has clicked the red x on the main window")
         self.stage.shutdown()
-        self.timer.stop()
+        self.pbar_timer.stop()
         event.accept()
 
 def main():

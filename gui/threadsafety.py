@@ -62,11 +62,11 @@ class SignalStream(QObject):
         self.data = []
         self.thread = QThread()
 
-        self.timer = QTimer()
-        self.timer.moveToThread(self.thread)
-        self.timer.setInterval(interval_ms)
-        self.timer.timeout.connect(self.flush)
-        self.thread.started.connect(self.timer.start)
+        self.pbar_timer = QTimer()
+        self.pbar_timer.moveToThread(self.thread)
+        self.pbar_timer.setInterval(interval_ms)
+        self.pbar_timer.timeout.connect(self.flush)
+        self.thread.started.connect(self.pbar_timer.start)
         self.thread.start()
 
     def __del__(self):
@@ -89,8 +89,8 @@ class SignalStream(QObject):
             self.data = []
 
     def set_interval(self, interval_ms):
-        '''Alter the timer period'''
-        self.timer.setInteval(interval_ms)
+        '''Alter the pbar_timer period'''
+        self.pbar_timer.setInteval(interval_ms)
         
 class OutLog:
     '''OutLog pipes output from a stream to a QTextEdit widget
@@ -107,11 +107,11 @@ class OutLog:
         self.cache = collections.deque()
 
         self.thread = QtCore.QThread()
-        self.timer = QtCore.QTimer()
-        self.timer.moveToThread(self.thread)
-        self.timer.setInterval(interval_ms)
-        self.timer.timeout.connect(self.flush)
-        self.thread.started.connect(self.timer.start)
+        self.pbar_timer = QtCore.QTimer()
+        self.pbar_timer.moveToThread(self.thread)
+        self.pbar_timer.setInterval(interval_ms)
+        self.pbar_timer.timeout.connect(self.flush)
+        self.thread.started.connect(self.pbar_timer.start)
         self.thread.start()
 
     def __del__(self):
